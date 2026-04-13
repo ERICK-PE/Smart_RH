@@ -1,0 +1,25 @@
+frontend/
+│
+├── src/
+│   ├── components/
+│   │   ├── Dashboard.jsx
+│   │   ├── EvaluationForm.jsx
+│   │
+│   ├── pages/
+│   │   ├── Home.jsx
+│   │   ├── Evaluations.jsx
+│   │
+│   ├── services/        # Comunicação com API
+│   │   ├── api.js
+│   │
+│   ├── hooks/
+│   │   ├── useAuth.js
+│   │
+│   ├── context/
+│   │   ├── AuthContext.jsx
+│   │
+│   ├── utils/
+│   ├── App.jsx
+│   └── main.jsx
+│
+├── package.json
