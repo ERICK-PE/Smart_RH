@@ -20,6 +20,8 @@ from . import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('',views.index_view),
-    path('setor/',include('apps.setor.api.urls'))
+    path('setor/',include('apps.setor.api.urls')),
+    path('funcionario/',include('apps.funcionario.api.urls')),
+    path('avaliacao/',include('apps.avaliacao.api.urls')),
+    path('candidato/',include('apps.candidato_vaga.api.urls'))
 ]

@@ -4,3 +4,6 @@ from django.http import HttpResponse
 
 def setor_home(request):
     return HttpResponse("Teste setor")
+
+def cargo_home(request):
+    return HttpResponse("Teste cargo")
