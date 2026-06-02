@@ -1,5 +1,4 @@
 from django.db import models
-from django.db import models
 
 
 class AnaliseComportamental(models.Model):
@@ -9,6 +8,9 @@ class AnaliseComportamental(models.Model):
                                             db_column='fk_id_funcionario')
     resultado = models.TextField(blank=True, null=True)
     data_analise = models.DateField(blank=True, null=True)
+
+    def __str__(self):
+        return f'Analise comportamental {self.id_analise}'
 
     class Meta:
         managed = False
@@ -28,6 +30,9 @@ class AvaliacaoDesempenho(models.Model):
     nota = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     comentario = models.TextField(blank=True, null=True)
     data_avaliacao = models.DateField()
+
+    def __str__(self):
+        return f'Avaliacao de desempenho {self.id_avaliacao}'
 
     class Meta:
         managed = False

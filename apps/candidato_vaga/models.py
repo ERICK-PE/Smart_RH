@@ -8,6 +8,9 @@ class Candidato(models.Model):
     telefone = models.CharField(max_length=20, blank=True, null=True)
     curriculo = models.TextField(blank=True, null=True)
 
+    def __str__(self):
+        return self.nome or f'Candidato {self.id_candidato}'
+
     class Meta:
         managed = False
         db_table = 'candidato'
@@ -23,6 +26,9 @@ class Vaga(models.Model):
                                      db_column='fk_id_setor', 
                                      blank=True, null=True)
 
+    def __str__(self):
+        return self.titulo or f'Vaga {self.id_vaga}'
+
     class Meta:
         managed = False
         db_table = 'vaga'
@@ -33,6 +39,9 @@ class CandidatoVaga(models.Model):
     id_candidato = models.ForeignKey(Candidato, models.DO_NOTHING, db_column='id_candidato')
     id_vaga = models.ForeignKey(Vaga, models.DO_NOTHING, db_column='id_vaga')
     status_processo = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return f'Candidato {self.id_candidato_id} - Vaga {self.id_vaga_id}'
 
     class Meta:
         managed = False
