@@ -10,17 +10,41 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def load_env_file(env_path):
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding='utf-8').splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+
+        key, value = line.split('=', 1)
+        os.environ.setdefault(key.strip().lstrip('\ufeff'), value.strip())
+
+
+def get_env(name):
+    value = os.environ.get(name)
+    if value is None:
+        raise RuntimeError(f'Variavel de ambiente obrigatoria ausente: {name}')
+    return value
+
+
+load_env_file(BASE_DIR / '.env')
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-q8^qr9h3to9cwz@@vs1!*3544ue8n#+@w-@$xl$9griho(e-pt'
+SECRET_KEY = get_env('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -80,12 +104,12 @@ WSGI_APPLICATION = 'Smart_RH.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'smart_rh',
-        'USER': 'postgres',
-        'PASSWORD': 'password',
-        'HOST': '127.0.0.1',
-        'PORT': '3005',
+        'ENGINE': get_env('DB_ENGINE'),
+        'NAME': get_env('DB_NAME'),
+        'USER': get_env('DB_USER'),
+        'PASSWORD': get_env('DB_PASSWORD'),
+        'HOST': get_env('DB_HOST'),
+        'PORT': get_env('DB_PORT'),
     }
 }
 

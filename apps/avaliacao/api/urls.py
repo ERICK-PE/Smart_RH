@@ -1,6 +1,20 @@
-from django.urls import path
-from . import views
-urlpatterns=[
-    path('',views.avaliacao_desempenho_home),
-    path('analise/',views.analise_comportamental_home)
-]
+from rest_framework.routers import DefaultRouter
+
+from apps.avaliacao.api.views import (
+    AnaliseComportamentalViewSet,
+    AvaliacaoDesempenhoViewSet,
+)
+
+router = DefaultRouter()
+router.register(
+    'analises-comportamentais',
+    AnaliseComportamentalViewSet,
+    basename='analise-comportamental',
+)
+router.register(
+    'avaliacoes-desempenho',
+    AvaliacaoDesempenhoViewSet,
+    basename='avaliacao-desempenho',
+)
+
+urlpatterns = router.urls

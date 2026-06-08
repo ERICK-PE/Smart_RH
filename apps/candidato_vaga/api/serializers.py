@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from apps.candidato_vaga.models import Candidato, CandidatoVaga, Vaga
 from apps.validators import (
+    cpf_format_validator,
     nome_validators,
     normalize_optional_text,
     normalize_required_text,
@@ -16,7 +17,7 @@ class CandidatoReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Candidato
         fields = [
-            'id_candidato',
+            'cpf_candidato',
             'nome',
             'email',
             'telefone',
@@ -27,6 +28,10 @@ class CandidatoReadSerializer(serializers.ModelSerializer):
 
 
 class CandidatoWriteSerializer(serializers.ModelSerializer):
+    cpf_candidato = serializers.CharField(
+        max_length=15,
+        validators=[cpf_format_validator],
+    )
     nome = serializers.CharField(
         required=False,
         allow_blank=True,
@@ -44,15 +49,13 @@ class CandidatoWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Candidato
         fields = [
-            'id_candidato',
+            'cpf_candidato',
             'nome',
             'email',
             'telefone',
             'curriculo',
         ]
-        read_only_fields = [
-            'id_candidato',
-        ]
+        read_only_fields = []
 
     def validate_nome(self, value):
         if value in [None, '']:
@@ -74,7 +77,7 @@ class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Candidato
         fields = [
-            'id_candidato',
+            'cpf_candidato',
             'nome',
             'email',
             'telefone',
@@ -158,7 +161,7 @@ class CandidatoVagaReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = CandidatoVaga
         fields = [
-            'id_candidato',
+            'cpf_candidato',
             'id_vaga',
             'status_processo',
         ]
@@ -177,14 +180,14 @@ class CandidatoVagaWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = CandidatoVaga
         fields = [
-            'id_candidato',
+            'cpf_candidato',
             'id_vaga',
             'status_processo',
         ]
         read_only_fields = []
 
     def validate(self, attrs):
-        if not self.partial and (attrs.get('id_candidato') is None or attrs.get('id_vaga') is None):
+        if not self.partial and (attrs.get('cpf_candidato') is None or attrs.get('id_vaga') is None):
             raise serializers.ValidationError(
                 'Candidato e vaga sao obrigatorios para criar o vinculo.'
             )

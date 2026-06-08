@@ -5,8 +5,8 @@ from .models import Candidato, Vaga
 
 @admin.register(Candidato)
 class CandidatoAdmin(admin.ModelAdmin):
-    list_display = ("id_candidato", "nome")
-    search_fields = ("nome",)
+    list_display = ("cpf_candidato", "nome")
+    search_fields = ("cpf_candidato", "nome")
 
 
 @admin.register(Vaga)
