@@ -1,5 +1,4 @@
 from django.db import models
-from django.db import models
 
 
 class Funcionario(models.Model):
@@ -16,6 +15,9 @@ class Funcionario(models.Model):
                                     models.DO_NOTHING, 
                                     db_column='fk_id_cargo')
 
+    def __str__(self):
+        return self.nome
+
     class Meta:
         managed = False
         db_table = 'funcionario'
@@ -29,6 +31,9 @@ class PlanoCarreira(models.Model):
     descricao = models.TextField(blank=True, null=True)
     requisitos = models.TextField(blank=True, null=True)
 
+    def __str__(self):
+        return f'Plano de carreira {self.id_plano}'
+
     class Meta:
         managed = False
         db_table = 'plano_carreira'
@@ -41,6 +46,9 @@ class Contrato(models.Model):
     salario = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     data_inicio = models.DateField()
     data_fim = models.DateField(blank=True, null=True)
+
+    def __str__(self):
+        return f'Contrato {self.id_contrato}'
 
     class Meta:
         managed = False

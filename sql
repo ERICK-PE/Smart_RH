@@ -86,7 +86,7 @@ CREATE TABLE vaga (
 );
 
 CREATE TABLE candidato (
-    id_candidato SERIAL PRIMARY KEY,
+    cpf_candidato VARCHAR(15) PRIMARY KEY,
     nome VARCHAR(150),
     email VARCHAR(150),
     telefone VARCHAR(20),
@@ -94,12 +94,12 @@ CREATE TABLE candidato (
 );
 
 CREATE TABLE candidato_vaga (
-    id_candidato INT,
+    cpf_candidato VARCHAR(15),
     id_vaga INT,
     status_processo VARCHAR(50),
 
-    PRIMARY KEY (id_candidato, id_vaga),
+    PRIMARY KEY (cpf_candidato, id_vaga),
 
-    FOREIGN KEY (id_candidato) REFERENCES candidato(id_candidato),
+    FOREIGN KEY (cpf_candidato) REFERENCES candidato(cpf_candidato),
     FOREIGN KEY (id_vaga) REFERENCES vaga(id_vaga)
 );

@@ -2,11 +2,14 @@ from django.db import models
 
 
 class Candidato(models.Model):
-    id_candidato = models.AutoField(primary_key=True)
+    cpf_candidato = models.CharField(primary_key=True, max_length=15)
     nome = models.CharField(max_length=150, blank=True, null=True)
     email = models.CharField(max_length=150, blank=True, null=True)
     telefone = models.CharField(max_length=20, blank=True, null=True)
     curriculo = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.nome or f'Candidato {self.cpf_candidato}'
 
     class Meta:
         managed = False
@@ -23,16 +26,22 @@ class Vaga(models.Model):
                                      db_column='fk_id_setor', 
                                      blank=True, null=True)
 
+    def __str__(self):
+        return self.titulo or f'Vaga {self.id_vaga}'
+
     class Meta:
         managed = False
         db_table = 'vaga'
 
 
 class CandidatoVaga(models.Model):
-    pk = models.CompositePrimaryKey('id_candidato', 'id_vaga')
-    id_candidato = models.ForeignKey(Candidato, models.DO_NOTHING, db_column='id_candidato')
+    pk = models.CompositePrimaryKey('cpf_candidato', 'id_vaga')
+    cpf_candidato = models.ForeignKey(Candidato, models.DO_NOTHING, db_column='cpf_candidato')
     id_vaga = models.ForeignKey(Vaga, models.DO_NOTHING, db_column='id_vaga')
     status_processo = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return f'Candidato {self.cpf_candidato_id} - Vaga {self.id_vaga_id}'
 
     class Meta:
         managed = False

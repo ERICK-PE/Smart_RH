@@ -1,7 +1,14 @@
-from django.urls import path
-from . import views
-urlpatterns=[
-    path('',views.candidato_home),
-    path('vaga',views.vaga_home),
-    path('cv',views.candidato_vaga_home)
-]
+from rest_framework.routers import DefaultRouter
+
+from apps.candidato_vaga.api.views import (
+    CandidatoVagaViewSet,
+    CandidatoViewSet,
+    VagaViewSet,
+)
+
+router = DefaultRouter()
+router.register('candidatos', CandidatoViewSet, basename='candidato')
+router.register('vagas', VagaViewSet, basename='vaga')
+router.register('candidato-vagas', CandidatoVagaViewSet, basename='candidato-vaga')
+
+urlpatterns = router.urls
