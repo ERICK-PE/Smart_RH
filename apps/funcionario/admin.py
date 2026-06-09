@@ -5,9 +5,9 @@ from .models import Contrato, Funcionario, PlanoCarreira
 
 @admin.register(Funcionario)
 class FuncionarioAdmin(admin.ModelAdmin):
-    list_display = ("id_funcionario", "nome", "fk_id_setor", "fk_id_cargo", "data_admissao")
+    list_display = ("id_funcionario", "user", "nome", "fk_id_setor", "fk_id_cargo", "data_admissao")
     list_filter = ("fk_id_setor", "fk_id_cargo")
-    search_fields = ("nome",)
+    search_fields = ("nome", "user__username")
 
 
 @admin.register(PlanoCarreira)

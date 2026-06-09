@@ -12,11 +12,51 @@ from apps.validators import (
 )
 
 
+def mask_cpf(value):
+    return '***.***.***-**' if value else value
+
+
+def mask_email(value):
+    if not value or '@' not in value:
+        return value
+
+    local, domain = value.split('@', 1)
+    visible = local[:1] if local else ''
+    return f'{visible}***@{domain}'
+
+
+def mask_phone(value):
+    return '***********' if value else value
+
+
+def can_view_funcionario_sensitive(serializer, funcionario):
+    request = serializer.context.get('request')
+    view = serializer.context.get('view')
+    user = getattr(request, 'user', None)
+
+    if view and getattr(view, 'user_has_rh_admin_access', None) and view.user_has_rh_admin_access():
+        return True
+    if user and getattr(user, 'is_authenticated', False):
+        if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+            return True
+
+    if view and getattr(view, 'get_request_funcionario_id', None):
+        funcionario_id = view.get_request_funcionario_id(required=False)
+        return str(funcionario_id) == str(getattr(funcionario, 'pk', None))
+
+    return False
+
+
 class FuncionarioReadSerializer(serializers.ModelSerializer):
+    cpf = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    telefone = serializers.SerializerMethodField()
+
     class Meta:
         model = Funcionario
         fields = [
             'id_funcionario',
+            'user',
             'nome',
             'cpf',
             'email',
@@ -27,6 +67,21 @@ class FuncionarioReadSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
         depth = 1
+
+    def get_cpf(self, obj):
+        if can_view_funcionario_sensitive(self, obj):
+            return obj.cpf
+        return mask_cpf(obj.cpf)
+
+    def get_email(self, obj):
+        if can_view_funcionario_sensitive(self, obj):
+            return obj.email
+        return mask_email(obj.email)
+
+    def get_telefone(self, obj):
+        if can_view_funcionario_sensitive(self, obj):
+            return obj.telefone
+        return mask_phone(obj.telefone)
 
 
 class FuncionarioWriteSerializer(serializers.ModelSerializer):
@@ -44,6 +99,7 @@ class FuncionarioWriteSerializer(serializers.ModelSerializer):
         model = Funcionario
         fields = [
             'id_funcionario',
+            'user',
             'nome',
             'cpf',
             'email',
@@ -76,10 +132,15 @@ class FuncionarioWriteSerializer(serializers.ModelSerializer):
 
 
 class FuncionarioComRelacionamentosReadSerializer(serializers.ModelSerializer):
+    cpf = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    telefone = serializers.SerializerMethodField()
+
     class Meta:
         model = Funcionario
         fields = [
             'id_funcionario',
+            'user',
             'nome',
             'cpf',
             'email',
@@ -94,6 +155,21 @@ class FuncionarioComRelacionamentosReadSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
         depth = 1
+
+    def get_cpf(self, obj):
+        if can_view_funcionario_sensitive(self, obj):
+            return obj.cpf
+        return mask_cpf(obj.cpf)
+
+    def get_email(self, obj):
+        if can_view_funcionario_sensitive(self, obj):
+            return obj.email
+        return mask_email(obj.email)
+
+    def get_telefone(self, obj):
+        if can_view_funcionario_sensitive(self, obj):
+            return obj.telefone
+        return mask_phone(obj.telefone)
 
 
 class PlanoCarreiraReadSerializer(serializers.ModelSerializer):
@@ -140,6 +216,8 @@ class PlanoCarreiraWriteSerializer(serializers.ModelSerializer):
 
 
 class ContratoReadSerializer(serializers.ModelSerializer):
+    salario = serializers.SerializerMethodField()
+
     class Meta:
         model = Contrato
         fields = [
@@ -152,6 +230,23 @@ class ContratoReadSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
         depth = 1
+
+    def get_salario(self, obj):
+        request = self.context.get('request')
+        view = self.context.get('view')
+        user = getattr(request, 'user', None)
+
+        if view and getattr(view, 'user_has_rh_admin_access', None) and view.user_has_rh_admin_access():
+            return obj.salario
+        if user and getattr(user, 'is_authenticated', False):
+            if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+                return obj.salario
+        if view and getattr(view, 'get_request_funcionario_id', None):
+            funcionario_id = view.get_request_funcionario_id(required=False)
+            if str(funcionario_id) == str(obj.fk_id_funcionario_id):
+                return obj.salario
+
+        return None
 
 
 class ContratoWriteSerializer(serializers.ModelSerializer):

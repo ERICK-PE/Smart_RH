@@ -1,8 +1,17 @@
+from django.conf import settings
 from django.db import models
 
 
 class Funcionario(models.Model):
     id_funcionario = models.AutoField(primary_key=True)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        models.DO_NOTHING,
+        db_column='user_id',
+        related_name='funcionario',
+        blank=True,
+        null=True,
+    )
     nome = models.CharField(max_length=150)
     cpf = models.CharField(unique=True, max_length=14)
     email = models.CharField(unique=True, max_length=150, blank=True, null=True)
@@ -21,6 +30,12 @@ class Funcionario(models.Model):
     class Meta:
         managed = False
         db_table = 'funcionario'
+        permissions = [
+            ('view_lideranca', 'Pode acessar recursos de leitura da lideranca'),
+            ('manage_lideranca', 'Pode gerenciar recursos da lideranca'),
+            ('view_rh_panel', 'Pode acessar paineis de RH'),
+            ('manage_rh', 'Pode gerenciar recursos de RH'),
+        ]
 
 
 class PlanoCarreira(models.Model):
