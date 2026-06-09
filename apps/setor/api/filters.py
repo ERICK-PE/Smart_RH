@@ -1,0 +1,37 @@
+from django_filters import rest_framework as filters
+
+from apps.setor.models import Cargo, Setor
+
+
+class SetorFilter(filters.FilterSet):
+    nome = filters.CharFilter(field_name='nome', lookup_expr='icontains')
+    descricao = filters.CharFilter(field_name='descricao', lookup_expr='icontains')
+    possui_funcionarios = filters.BooleanFilter(method='filter_possui_funcionarios')
+    possui_vagas = filters.BooleanFilter(method='filter_possui_vagas')
+
+    class Meta:
+        model = Setor
+        fields = ['id_setor', 'nome', 'descricao', 'possui_funcionarios', 'possui_vagas']
+
+    def filter_possui_funcionarios(self, queryset, name, value):
+        return queryset.filter(funcionario__isnull=not value).distinct()
+
+    def filter_possui_vagas(self, queryset, name, value):
+        return queryset.filter(vaga__isnull=not value).distinct()
+
+
+class CargoFilter(filters.FilterSet):
+    nome = filters.CharFilter(field_name='nome', lookup_expr='icontains')
+    descricao = filters.CharFilter(field_name='descricao', lookup_expr='icontains')
+    possui_funcionarios = filters.BooleanFilter(method='filter_possui_funcionarios')
+    possui_planos_carreira = filters.BooleanFilter(method='filter_possui_planos_carreira')
+
+    class Meta:
+        model = Cargo
+        fields = ['id_cargo', 'nome', 'descricao', 'possui_funcionarios', 'possui_planos_carreira']
+
+    def filter_possui_funcionarios(self, queryset, name, value):
+        return queryset.filter(funcionario__isnull=not value).distinct()
+
+    def filter_possui_planos_carreira(self, queryset, name, value):
+        return queryset.filter(planocarreira__isnull=not value).distinct()

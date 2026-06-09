@@ -3,10 +3,25 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.avaliacao.models import AnaliseComportamental, AvaliacaoDesempenho
+from apps.funcionario.api.serializers import can_view_funcionario_sensitive
 from apps.validators import normalize_optional_text
 
 
+def can_view_avaliacao_sensitive(serializer, avaliacao):
+    if can_view_funcionario_sensitive(serializer, avaliacao.fk_id_funcionario):
+        return True
+
+    view = serializer.context.get('view')
+    if view and getattr(view, 'get_request_funcionario_id', None):
+        funcionario_id = view.get_request_funcionario_id(required=False)
+        return str(funcionario_id) == str(getattr(avaliacao, 'fk_id_avaliador_id', None))
+
+    return False
+
+
 class AnaliseComportamentalReadSerializer(serializers.ModelSerializer):
+    resultado = serializers.SerializerMethodField()
+
     class Meta:
         model = AnaliseComportamental
         fields = [
@@ -17,6 +32,11 @@ class AnaliseComportamentalReadSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
         depth = 1
+
+    def get_resultado(self, obj):
+        if can_view_funcionario_sensitive(self, obj.fk_id_funcionario):
+            return obj.resultado
+        return None
 
 
 class AnaliseComportamentalWriteSerializer(serializers.ModelSerializer):
@@ -47,6 +67,8 @@ class AnaliseComportamentalWriteSerializer(serializers.ModelSerializer):
 
 
 class AvaliacaoDesempenhoReadSerializer(serializers.ModelSerializer):
+    comentario = serializers.SerializerMethodField()
+
     class Meta:
         model = AvaliacaoDesempenho
         fields = [
@@ -60,6 +82,11 @@ class AvaliacaoDesempenhoReadSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
         depth = 1
+
+    def get_comentario(self, obj):
+        if can_view_avaliacao_sensitive(self, obj):
+            return obj.comentario
+        return None
 
 
 class AvaliacaoDesempenhoWriteSerializer(serializers.ModelSerializer):

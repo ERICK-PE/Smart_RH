@@ -13,7 +13,47 @@ from apps.validators import (
 )
 
 
+def mask_cpf(value):
+    return '***.***.***-**' if value else value
+
+
+def mask_email(value):
+    if not value or '@' not in value:
+        return value
+
+    local, domain = value.split('@', 1)
+    visible = local[:1] if local else ''
+    return f'{visible}***@{domain}'
+
+
+def mask_phone(value):
+    return '***********' if value else value
+
+
+def can_view_candidato_sensitive(serializer, candidato):
+    request = serializer.context.get('request')
+    view = serializer.context.get('view')
+    user = getattr(request, 'user', None)
+
+    if view and getattr(view, 'user_has_rh_admin_access', None) and view.user_has_rh_admin_access():
+        return True
+    if user and getattr(user, 'is_authenticated', False):
+        if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+            return True
+
+    if view and getattr(view, 'get_request_candidato_cpf', None):
+        cpf_candidato = view.get_request_candidato_cpf(required=False)
+        return str(cpf_candidato) == str(getattr(candidato, 'pk', None))
+
+    return False
+
+
 class CandidatoReadSerializer(serializers.ModelSerializer):
+    cpf_candidato = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    telefone = serializers.SerializerMethodField()
+    curriculo = serializers.SerializerMethodField()
+
     class Meta:
         model = Candidato
         fields = [
@@ -25,6 +65,26 @@ class CandidatoReadSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
         depth = 1
+
+    def get_cpf_candidato(self, obj):
+        if can_view_candidato_sensitive(self, obj):
+            return obj.cpf_candidato
+        return mask_cpf(obj.cpf_candidato)
+
+    def get_email(self, obj):
+        if can_view_candidato_sensitive(self, obj):
+            return obj.email
+        return mask_email(obj.email)
+
+    def get_telefone(self, obj):
+        if can_view_candidato_sensitive(self, obj):
+            return obj.telefone
+        return mask_phone(obj.telefone)
+
+    def get_curriculo(self, obj):
+        if can_view_candidato_sensitive(self, obj):
+            return obj.curriculo
+        return None
 
 
 class CandidatoWriteSerializer(serializers.ModelSerializer):
@@ -45,6 +105,12 @@ class CandidatoWriteSerializer(serializers.ModelSerializer):
         allow_null=True,
         validators=[phone_format_validator],
     )
+    curriculo = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        validators=[safe_text_validator],
+    )
 
     class Meta:
         model = Candidato
@@ -56,6 +122,15 @@ class CandidatoWriteSerializer(serializers.ModelSerializer):
             'curriculo',
         ]
         read_only_fields = []
+
+    def validate_cpf_candidato(self, value):
+        if self.instance and str(self.instance.pk) == str(value):
+            return value
+
+        if Candidato.objects.filter(pk=value).exists():
+            raise serializers.ValidationError('Ja existe candidato com este CPF.')
+
+        return value
 
     def validate_nome(self, value):
         if value in [None, '']:
@@ -74,6 +149,11 @@ class CandidatoWriteSerializer(serializers.ModelSerializer):
 
 
 class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
+    cpf_candidato = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    telefone = serializers.SerializerMethodField()
+    curriculo = serializers.SerializerMethodField()
+
     class Meta:
         model = Candidato
         fields = [
@@ -86,6 +166,26 @@ class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
         depth = 1
+
+    def get_cpf_candidato(self, obj):
+        if can_view_candidato_sensitive(self, obj):
+            return obj.cpf_candidato
+        return mask_cpf(obj.cpf_candidato)
+
+    def get_email(self, obj):
+        if can_view_candidato_sensitive(self, obj):
+            return obj.email
+        return mask_email(obj.email)
+
+    def get_telefone(self, obj):
+        if can_view_candidato_sensitive(self, obj):
+            return obj.telefone
+        return mask_phone(obj.telefone)
+
+    def get_curriculo(self, obj):
+        if can_view_candidato_sensitive(self, obj):
+            return obj.curriculo
+        return None
 
 
 class VagaReadSerializer(serializers.ModelSerializer):
@@ -158,6 +258,8 @@ class VagaComCandidatosReadSerializer(serializers.ModelSerializer):
 
 
 class CandidatoVagaReadSerializer(serializers.ModelSerializer):
+    cpf_candidato = serializers.SerializerMethodField()
+
     class Meta:
         model = CandidatoVaga
         fields = [
@@ -167,6 +269,12 @@ class CandidatoVagaReadSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
         depth = 1
+
+    def get_cpf_candidato(self, obj):
+        candidato = obj.cpf_candidato
+        if can_view_candidato_sensitive(self, candidato):
+            return candidato.pk
+        return mask_cpf(candidato.pk)
 
 
 class CandidatoVagaWriteSerializer(serializers.ModelSerializer):
@@ -196,6 +304,28 @@ class CandidatoVagaWriteSerializer(serializers.ModelSerializer):
             attrs['status_processo'] = normalize_optional_text(attrs.get('status_processo'))
 
         return attrs
+
+
+class CandidaturaCreateSerializer(serializers.Serializer):
+    id_vaga = serializers.PrimaryKeyRelatedField(queryset=Vaga.objects.all())
+
+    def validate(self, attrs):
+        candidato = self.context['candidato']
+        vaga = attrs['id_vaga']
+
+        if CandidatoVaga.objects.filter(cpf_candidato=candidato, id_vaga=vaga).exists():
+            raise serializers.ValidationError({
+                'id_vaga': 'Candidato ja inscrito nesta vaga.',
+            })
+
+        return attrs
+
+    def create(self, validated_data):
+        return CandidatoVaga.objects.create(
+            cpf_candidato=self.context['candidato'],
+            id_vaga=validated_data['id_vaga'],
+            status_processo='candidatado',
+        )
 
 
 CandidatoSerializer = CandidatoReadSerializer
