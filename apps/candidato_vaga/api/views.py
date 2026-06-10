@@ -111,12 +111,10 @@ class CandidatoViewSet(CandidatoAccessMixin, ResumoActionMixin, viewsets.ReadOnl
             return self.vagas_candidatadas(request, pk=pk)
 
         candidato = self.get_candidato_object()
-        serializer = CandidatoVagaReadSerializer(
+        return self.paginated_serializer_response(
             candidato.candidatovaga_set.all().order_by('id_vaga'),
-            many=True,
-            context=self.get_serializer_context(),
+            CandidatoVagaReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['post', 'patch'], url_path='curriculo')
     def curriculo(self, request, pk=None):
@@ -141,18 +139,15 @@ class CandidatoViewSet(CandidatoAccessMixin, ResumoActionMixin, viewsets.ReadOnl
         candidato = self.get_candidato_object()
         vagas_candidatadas = candidato.candidatovaga_set.values_list('id_vaga_id', flat=True)
         vagas = Vaga.objects.exclude(pk__in=vagas_candidatadas).order_by('id_vaga')
-        serializer = VagaReadSerializer(vagas, many=True)
-        return Response(serializer.data)
+        return self.paginated_serializer_response(vagas, VagaReadSerializer)
 
     @action(detail=True, methods=['get'], url_path='vagas-candidatadas')
     def vagas_candidatadas(self, request, pk=None):
         candidato = self.get_candidato_object()
-        serializer = CandidatoVagaReadSerializer(
+        return self.paginated_serializer_response(
             candidato.candidatovaga_set.all().order_by('id_vaga'),
-            many=True,
-            context=self.get_serializer_context(),
+            CandidatoVagaReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='candidatar-se')
     def candidatar_se(self, request, pk=None):
@@ -223,41 +218,35 @@ class VagaViewSet(
             cpf_candidato = self.get_request_candidato_cpf()
             candidaturas = candidaturas.filter(cpf_candidato_id=cpf_candidato)
 
-        serializer = CandidatoVagaReadSerializer(
+        return self.paginated_serializer_response(
             candidaturas,
-            many=True,
-            context=self.get_serializer_context(),
+            CandidatoVagaReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='rh/candidatos')
     def rh_candidatos(self, request, pk=None):
         self.assert_rh_admin_access()
         vaga = self.get_object()
-        serializer = CandidatoVagaReadSerializer(
+        return self.paginated_serializer_response(
             vaga.candidatovaga_set.all().order_by('cpf_candidato'),
-            many=True,
-            context=self.get_serializer_context(),
+            CandidatoVagaReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='rh/processos')
     def rh_processos(self, request, pk=None):
         self.assert_rh_admin_access()
         vaga = self.get_object()
-        serializer = CandidatoVagaReadSerializer(
+        return self.paginated_serializer_response(
             vaga.candidatovaga_set.all().order_by('cpf_candidato'),
-            many=True,
-            context=self.get_serializer_context(),
+            CandidatoVagaReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(
         detail=True,
         methods=['patch'],
         url_path='rh/processos/(?P<cpf_candidato>[^/.]+)',
     )
-    def rh_atualizar_processo(self, request, pk=None, cpf_candidato=None):
+    def rh_atualizar_processo(self, request, pk=None, cpf_candidato: str | None = None):
         self.assert_rh_admin_access()
         processo = get_object_or_404(
             CandidatoVaga,

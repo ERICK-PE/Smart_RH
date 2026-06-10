@@ -19,7 +19,9 @@ from django.urls import path, include
 from . import views
 
 urlpatterns = [
+    path('', views.index_view, name='home'),
     path('admin/', admin.site.urls),
+    path('api/', include('Smart_RH.api_urls')),
     path('setor/',include('apps.setor.api.urls')),
     path('funcionario/',include('apps.funcionario.api.urls')),
     path('avaliacao/',include('apps.avaliacao.api.urls')),

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+from importlib.util import find_spec
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -69,6 +70,9 @@ INSTALLED_APPS = [
     'apps.funcionario',
     'apps.setor'
 ]
+
+if find_spec('drf_spectacular'):
+    INSTALLED_APPS.append('drf_spectacular')
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -156,4 +160,16 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
     ],
+    'DEFAULT_PAGINATION_CLASS': 'apps.pagination.StandardResultsSetPagination',
+    'PAGE_SIZE': 20,
+}
+
+if find_spec('drf_spectacular'):
+    REST_FRAMEWORK['DEFAULT_SCHEMA_CLASS'] = 'drf_spectacular.openapi.AutoSchema'
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Smart-RH API',
+    'DESCRIPTION': 'Documentacao OpenAPI dos endpoints do Smart-RH.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }

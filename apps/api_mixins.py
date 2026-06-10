@@ -12,6 +12,17 @@ class ResumoActionMixin:
             'total': self.get_queryset().count(),
         })
 
+    def paginated_serializer_response(self, queryset, serializer_class, **serializer_kwargs):
+        serializer_kwargs.setdefault('context', self.get_serializer_context())
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serializer = serializer_class(page, many=True, **serializer_kwargs)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = serializer_class(queryset, many=True, **serializer_kwargs)
+        return Response(serializer.data)
+
 
 class RHAdminAccessMixin:
     rh_admin_group_names = {

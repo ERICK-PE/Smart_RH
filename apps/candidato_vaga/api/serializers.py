@@ -66,22 +66,22 @@ class CandidatoReadSerializer(serializers.ModelSerializer):
         read_only_fields = fields
         depth = 1
 
-    def get_cpf_candidato(self, obj):
+    def get_cpf_candidato(self, obj) -> str | None:
         if can_view_candidato_sensitive(self, obj):
             return obj.cpf_candidato
         return mask_cpf(obj.cpf_candidato)
 
-    def get_email(self, obj):
+    def get_email(self, obj) -> str | None:
         if can_view_candidato_sensitive(self, obj):
             return obj.email
         return mask_email(obj.email)
 
-    def get_telefone(self, obj):
+    def get_telefone(self, obj) -> str | None:
         if can_view_candidato_sensitive(self, obj):
             return obj.telefone
         return mask_phone(obj.telefone)
 
-    def get_curriculo(self, obj):
+    def get_curriculo(self, obj) -> str | None:
         if can_view_candidato_sensitive(self, obj):
             return obj.curriculo
         return None
@@ -167,22 +167,22 @@ class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
         read_only_fields = fields
         depth = 1
 
-    def get_cpf_candidato(self, obj):
+    def get_cpf_candidato(self, obj) -> str | None:
         if can_view_candidato_sensitive(self, obj):
             return obj.cpf_candidato
         return mask_cpf(obj.cpf_candidato)
 
-    def get_email(self, obj):
+    def get_email(self, obj) -> str | None:
         if can_view_candidato_sensitive(self, obj):
             return obj.email
         return mask_email(obj.email)
 
-    def get_telefone(self, obj):
+    def get_telefone(self, obj) -> str | None:
         if can_view_candidato_sensitive(self, obj):
             return obj.telefone
         return mask_phone(obj.telefone)
 
-    def get_curriculo(self, obj):
+    def get_curriculo(self, obj) -> str | None:
         if can_view_candidato_sensitive(self, obj):
             return obj.curriculo
         return None
@@ -270,7 +270,7 @@ class CandidatoVagaReadSerializer(serializers.ModelSerializer):
         read_only_fields = fields
         depth = 1
 
-    def get_cpf_candidato(self, obj):
+    def get_cpf_candidato(self, obj) -> str | None:
         candidato = obj.cpf_candidato
         if can_view_candidato_sensitive(self, candidato):
             return candidato.pk

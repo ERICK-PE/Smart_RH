@@ -1,5 +1,6 @@
 from django.core.validators import MinValueValidator
 from django.utils import timezone
+from decimal import Decimal
 from rest_framework import serializers
 
 from apps.funcionario.models import Contrato, Funcionario, PlanoCarreira
@@ -68,17 +69,17 @@ class FuncionarioReadSerializer(serializers.ModelSerializer):
         read_only_fields = fields
         depth = 1
 
-    def get_cpf(self, obj):
+    def get_cpf(self, obj) -> str | None:
         if can_view_funcionario_sensitive(self, obj):
             return obj.cpf
         return mask_cpf(obj.cpf)
 
-    def get_email(self, obj):
+    def get_email(self, obj) -> str | None:
         if can_view_funcionario_sensitive(self, obj):
             return obj.email
         return mask_email(obj.email)
 
-    def get_telefone(self, obj):
+    def get_telefone(self, obj) -> str | None:
         if can_view_funcionario_sensitive(self, obj):
             return obj.telefone
         return mask_phone(obj.telefone)
@@ -156,17 +157,17 @@ class FuncionarioComRelacionamentosReadSerializer(serializers.ModelSerializer):
         read_only_fields = fields
         depth = 1
 
-    def get_cpf(self, obj):
+    def get_cpf(self, obj) -> str | None:
         if can_view_funcionario_sensitive(self, obj):
             return obj.cpf
         return mask_cpf(obj.cpf)
 
-    def get_email(self, obj):
+    def get_email(self, obj) -> str | None:
         if can_view_funcionario_sensitive(self, obj):
             return obj.email
         return mask_email(obj.email)
 
-    def get_telefone(self, obj):
+    def get_telefone(self, obj) -> str | None:
         if can_view_funcionario_sensitive(self, obj):
             return obj.telefone
         return mask_phone(obj.telefone)
@@ -231,7 +232,7 @@ class ContratoReadSerializer(serializers.ModelSerializer):
         read_only_fields = fields
         depth = 1
 
-    def get_salario(self, obj):
+    def get_salario(self, obj) -> Decimal | None:
         request = self.context.get('request')
         view = self.context.get('view')
         user = getattr(request, 'user', None)
