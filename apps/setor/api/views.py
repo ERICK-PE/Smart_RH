@@ -35,20 +35,18 @@ class SetorViewSet(RHAdminModelViewSetMixin, ResumoActionMixin, viewsets.ModelVi
     @action(detail=True, methods=['get'], url_path='funcionarios')
     def funcionarios(self, request, pk=None):
         setor = self.get_object()
-        serializer = FuncionarioReadSerializer(
+        return self.paginated_serializer_response(
             setor.funcionario_set.all().order_by('id_funcionario'),
-            many=True,
+            FuncionarioReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='vagas')
     def vagas(self, request, pk=None):
         setor = self.get_object()
-        serializer = VagaReadSerializer(
+        return self.paginated_serializer_response(
             setor.vaga_set.all().order_by('id_vaga'),
-            many=True,
+            VagaReadSerializer,
         )
-        return Response(serializer.data)
 
 
 class CargoViewSet(RHAdminModelViewSetMixin, ResumoActionMixin, viewsets.ModelViewSet):
@@ -63,17 +61,15 @@ class CargoViewSet(RHAdminModelViewSetMixin, ResumoActionMixin, viewsets.ModelVi
     @action(detail=True, methods=['get'], url_path='funcionarios')
     def funcionarios(self, request, pk=None):
         cargo = self.get_object()
-        serializer = FuncionarioReadSerializer(
+        return self.paginated_serializer_response(
             cargo.funcionario_set.all().order_by('id_funcionario'),
-            many=True,
+            FuncionarioReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='planos-carreira')
     def planos_carreira(self, request, pk=None):
         cargo = self.get_object()
-        serializer = PlanoCarreiraReadSerializer(
+        return self.paginated_serializer_response(
             cargo.planocarreira_set.all().order_by('id_plano'),
-            many=True,
+            PlanoCarreiraReadSerializer,
         )
-        return Response(serializer.data)

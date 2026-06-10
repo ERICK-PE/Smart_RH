@@ -33,7 +33,7 @@ class AnaliseComportamentalReadSerializer(serializers.ModelSerializer):
         read_only_fields = fields
         depth = 1
 
-    def get_resultado(self, obj):
+    def get_resultado(self, obj) -> str | None:
         if can_view_funcionario_sensitive(self, obj.fk_id_funcionario):
             return obj.resultado
         return None
@@ -83,7 +83,7 @@ class AvaliacaoDesempenhoReadSerializer(serializers.ModelSerializer):
         read_only_fields = fields
         depth = 1
 
-    def get_comentario(self, obj):
+    def get_comentario(self, obj) -> str | None:
         if can_view_avaliacao_sensitive(self, obj):
             return obj.comentario
         return None

@@ -59,12 +59,10 @@ class FuncionarioViewSet(
     @action(detail=True, methods=['get'], url_path='contratos')
     def contratos(self, request, pk=None):
         funcionario = self.get_object()
-        serializer = ContratoReadSerializer(
+        return self.paginated_serializer_response(
             funcionario.contrato_set.all().order_by('id_contrato'),
-            many=True,
-            context=self.get_serializer_context(),
+            ContratoReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='rh/perfil')
     def rh_perfil(self, request, pk=None):
@@ -99,12 +97,10 @@ class FuncionarioViewSet(
     @action(detail=True, methods=['get'], url_path='meus-contratos')
     def meus_contratos(self, request, pk=None):
         funcionario = self.get_funcionario_comum_object()
-        serializer = ContratoReadSerializer(
+        return self.paginated_serializer_response(
             funcionario.contrato_set.all().order_by('id_contrato'),
-            many=True,
-            context=self.get_serializer_context(),
+            ContratoReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='meus-contratos-pdf')
     def meus_contratos_pdf(self, request, pk=None):
@@ -125,68 +121,58 @@ class FuncionarioViewSet(
     @action(detail=True, methods=['get'], url_path='minhas-avaliacoes-desempenho')
     def minhas_avaliacoes_desempenho(self, request, pk=None):
         funcionario = self.get_funcionario_comum_object()
-        serializer = AvaliacaoDesempenhoReadSerializer(
+        return self.paginated_serializer_response(
             funcionario.avaliacaodesempenho_set.all().order_by('id_avaliacao'),
-            many=True,
-            context=self.get_serializer_context(),
+            AvaliacaoDesempenhoReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='meu-plano-carreira')
     def meu_plano_carreira(self, request, pk=None):
         funcionario = self.get_funcionario_comum_object()
-        serializer = PlanoCarreiraReadSerializer(
+        return self.paginated_serializer_response(
             PlanoCarreira.objects.filter(fk_id_cargo=funcionario.fk_id_cargo).order_by('id_plano'),
-            many=True,
+            PlanoCarreiraReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='lideranca/funcionarios-setor')
     def lideranca_funcionarios_setor(self, request):
         self.assert_lideranca_access()
         if self.user_has_global_access():
-            serializer = FuncionarioReadSerializer(
+            return self.paginated_serializer_response(
                 Funcionario.objects.all().order_by('id_funcionario'),
-                many=True,
-                context=self.get_serializer_context(),
+                FuncionarioReadSerializer,
             )
-            return Response(serializer.data)
 
         lider = self.get_request_funcionario()
-        serializer = FuncionarioReadSerializer(
+        return self.paginated_serializer_response(
             Funcionario.objects.filter(fk_id_setor=lider.fk_id_setor).order_by('id_funcionario'),
-            many=True,
-            context=self.get_serializer_context(),
+            FuncionarioReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='lideranca/planos-carreira-setor')
     def lideranca_planos_carreira_setor(self, request):
         self.assert_lideranca_access()
         if self.user_has_global_access():
-            serializer = PlanoCarreiraReadSerializer(
+            return self.paginated_serializer_response(
                 PlanoCarreira.objects.all().order_by('id_plano'),
-                many=True,
+                PlanoCarreiraReadSerializer,
             )
-            return Response(serializer.data)
 
         lider = self.get_request_funcionario()
-        serializer = PlanoCarreiraReadSerializer(
+        return self.paginated_serializer_response(
             PlanoCarreira.objects.filter(
                 fk_id_cargo__funcionario__fk_id_setor=lider.fk_id_setor,
             ).distinct().order_by('id_plano'),
-            many=True,
+            PlanoCarreiraReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='lideranca/planos-carreira')
     def lideranca_planos_carreira(self, request, pk=None):
         funcionario = self.get_funcionario_setor_lideranca(pk)
-        serializer = PlanoCarreiraReadSerializer(
+        return self.paginated_serializer_response(
             PlanoCarreira.objects.filter(fk_id_cargo=funcionario.fk_id_cargo).order_by('id_plano'),
-            many=True,
+            PlanoCarreiraReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='lideranca/criar-plano-carreira')
     def lideranca_criar_plano_carreira(self, request, pk=None):
@@ -232,7 +218,7 @@ class FuncionarioViewSet(
         methods=['patch'],
         url_path='lideranca/avaliacoes-desempenho/(?P<avaliacao_id>[^/.]+)/editar',
     )
-    def lideranca_editar_avaliacao_desempenho(self, request, pk=None, avaliacao_id=None):
+    def lideranca_editar_avaliacao_desempenho(self, request, pk=None, avaliacao_id: int | None = None):
         funcionario = self.get_funcionario_setor_lideranca(pk)
         avaliacao = get_object_or_404(
             AvaliacaoDesempenho,
@@ -260,32 +246,26 @@ class FuncionarioViewSet(
     @action(detail=True, methods=['get'], url_path='analises-comportamentais')
     def analises_comportamentais(self, request, pk=None):
         funcionario = self.get_object()
-        serializer = AnaliseComportamentalReadSerializer(
+        return self.paginated_serializer_response(
             funcionario.analisecomportamental_set.all().order_by('id_analise'),
-            many=True,
-            context=self.get_serializer_context(),
+            AnaliseComportamentalReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='avaliacoes-recebidas')
     def avaliacoes_recebidas(self, request, pk=None):
         funcionario = self.get_object()
-        serializer = AvaliacaoDesempenhoReadSerializer(
+        return self.paginated_serializer_response(
             funcionario.avaliacaodesempenho_set.all().order_by('id_avaliacao'),
-            many=True,
-            context=self.get_serializer_context(),
+            AvaliacaoDesempenhoReadSerializer,
         )
-        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='avaliacoes-realizadas')
     def avaliacoes_realizadas(self, request, pk=None):
         funcionario = self.get_object()
-        serializer = AvaliacaoDesempenhoReadSerializer(
+        return self.paginated_serializer_response(
             funcionario.avaliacaodesempenho_fk_id_avaliador_set.all().order_by('id_avaliacao'),
-            many=True,
-            context=self.get_serializer_context(),
+            AvaliacaoDesempenhoReadSerializer,
         )
-        return Response(serializer.data)
 
 
 class PlanoCarreiraViewSet(
@@ -325,7 +305,7 @@ class PlanoCarreiraViewSet(
         methods=['post'],
         url_path='rh/criar-para-funcionario/(?P<funcionario_id>[^/.]+)',
     )
-    def rh_criar_para_funcionario(self, request, funcionario_id=None):
+    def rh_criar_para_funcionario(self, request, funcionario_id: int | None = None):
         self.assert_rh_admin_access()
         get_object_or_404(Funcionario, pk=funcionario_id)
 
