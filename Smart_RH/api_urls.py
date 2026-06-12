@@ -2,9 +2,11 @@ from importlib.util import find_spec
 
 from django.http import JsonResponse
 from django.urls import include, path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 
 def api_root_view(request):
+    """Retorna catalogo de descoberta da API publica sob /api/."""
     drf_spectacular_available = bool(find_spec('drf_spectacular'))
     docs = {
         'schema': request.build_absolute_uri('schema/') if drf_spectacular_available else None,
@@ -16,6 +18,10 @@ def api_root_view(request):
         'name': 'Smart-RH API',
         'version': '1.0.0',
         'endpoints': {
+            'auth': {
+                'token': request.build_absolute_uri('auth/token/'),
+                'refresh': request.build_absolute_uri('auth/token/refresh/'),
+            },
             'setor': request.build_absolute_uri('setor/'),
             'funcionario': request.build_absolute_uri('funcionario/'),
             'avaliacao': request.build_absolute_uri('avaliacao/'),
@@ -27,6 +33,8 @@ def api_root_view(request):
 
 
 urlpatterns = [
+    path('auth/token/', TokenObtainPairView.as_view(), name='token-obtain-pair'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('setor/', include('apps.setor.api.urls')),
     path('funcionario/', include('apps.funcionario.api.urls')),
     path('avaliacao/', include('apps.avaliacao.api.urls')),

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.test import SimpleTestCase
+from rest_framework import viewsets
 
 from apps.avaliacao.api.filters import AnaliseComportamentalFilter, AvaliacaoDesempenhoFilter
 from apps.avaliacao.api.views import AnaliseComportamentalViewSet, AvaliacaoDesempenhoViewSet
@@ -17,6 +18,21 @@ class APIFilterConfigurationTests(SimpleTestCase):
 
         self.assertIn('django_filters.rest_framework.DjangoFilterBackend', filter_backends)
         self.assertIn('rest_framework.filters.SearchFilter', filter_backends)
+
+    def test_rest_framework_usa_jwt_e_session_authentication(self):
+        authentication_classes = settings.REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES']
+
+        self.assertEqual(
+            authentication_classes,
+            [
+                'rest_framework_simplejwt.authentication.JWTAuthentication',
+                'rest_framework.authentication.SessionAuthentication',
+            ],
+        )
+
+    def test_funcionario_crud_usa_model_viewset(self):
+        self.assertTrue(issubclass(FuncionarioViewSet, viewsets.ModelViewSet))
+        self.assertIn('status', FuncionarioViewSet.filterset_fields)
 
     def test_viewsets_possuem_filterset_fields_e_search_fields(self):
         viewsets = [
@@ -59,14 +75,14 @@ class APIFilterConfigurationTests(SimpleTestCase):
         expected_filters = {
             SetorFilter: {'possui_funcionarios', 'possui_vagas'},
             CargoFilter: {'possui_funcionarios', 'possui_planos_carreira'},
-            FuncionarioFilter: {'setor_nome', 'cargo_nome', 'data_admissao_inicio', 'data_admissao_fim'},
+            FuncionarioFilter: {'status', 'setor_nome', 'cargo_nome', 'data_admissao_inicio', 'data_admissao_fim'},
             PlanoCarreiraFilter: {'texto', 'cargo_nome'},
             ContratoFilter: {'funcionario_nome', 'data_inicio_de', 'data_inicio_ate'},
             CandidatoFilter: {'possui_curriculo'},
             VagaFilter: {'texto', 'setor_nome', 'com_candidaturas'},
             CandidatoVagaFilter: {'candidato_nome', 'vaga_titulo'},
             AnaliseComportamentalFilter: {'funcionario_nome', 'data_analise_de', 'data_analise_ate'},
-            AvaliacaoDesempenhoFilter: {'avaliador_nome', 'nota_min', 'nota_max'},
+            AvaliacaoDesempenhoFilter: {'avaliador_nome', 'nota_min', 'nota_max', 'data_avaliacao_de', 'data_avaliacao_ate'},
         }
 
         for filterset, filters in expected_filters.items():

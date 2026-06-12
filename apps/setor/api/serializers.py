@@ -31,9 +31,11 @@ class SetorWriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate_nome(self, value):
+        """Normaliza nome obrigatorio de setor."""
         return normalize_required_text(value, 'nome')
 
     def validate(self, attrs):
+        """Valida consistencia entre nome e descricao do setor."""
         nome = attrs.get('nome')
         descricao = normalize_optional_text(attrs.get('descricao')) if 'descricao' in attrs else None
 
@@ -89,9 +91,11 @@ class CargoWriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate_nome(self, value):
+        """Normaliza nome obrigatorio de cargo."""
         return normalize_required_text(value, 'nome')
 
     def validate(self, attrs):
+        """Valida consistencia entre nome e descricao do cargo."""
         nome = attrs.get('nome')
         descricao = normalize_optional_text(attrs.get('descricao')) if 'descricao' in attrs else None
 

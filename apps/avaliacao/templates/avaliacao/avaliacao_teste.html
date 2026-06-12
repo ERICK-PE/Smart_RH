@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Teste Avaliacoes</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f6f7f9;
+            --panel: #ffffff;
+            --line: #d9dee7;
+            --text: #1f2937;
+            --muted: #667085;
+            --primary: #0f766e;
+            --danger: #b42318;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+
+        main {
+            width: min(1180px, calc(100vw - 32px));
+            margin: 24px auto;
+        }
+
+        h1,
+        h2 {
+            margin: 0 0 12px;
+            line-height: 1.2;
+        }
+
+        h1 {
+            font-size: 24px;
+        }
+
+        h2 {
+            font-size: 18px;
+        }
+
+        section {
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+
+        .forms {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        form {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        label {
+            display: grid;
+            gap: 4px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            min-height: 38px;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            color: var(--text);
+            background: #fff;
+            font: inherit;
+        }
+
+        textarea {
+            min-height: 84px;
+            resize: vertical;
+        }
+
+        .span-2 {
+            grid-column: 1 / -1;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            min-height: 36px;
+            padding: 8px 12px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            color: var(--text);
+            background: #fff;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        button.primary {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: #fff;
+        }
+
+        button.danger {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .status {
+            min-height: 24px;
+            margin-top: 12px;
+            color: var(--muted);
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 760px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        td.actions-cell {
+            white-space: nowrap;
+        }
+
+        @media (max-width: 800px) {
+            .forms,
+            form {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Teste Avaliacoes</h1>
+    <div id="status" class="status"></div>
+
+    <section class="forms">
+        <div>
+            <h2>Avaliacao de desempenho</h2>
+            <form id="evaluation-form">
+                <input id="evaluation_id" type="hidden">
+                <label>
+                    Funcionario
+                    <select id="evaluation_employee" required></select>
+                </label>
+                <label>
+                    Avaliador
+                    <select id="evaluation_reviewer" required></select>
+                </label>
+                <label>
+                    Categoria
+                    <input id="evaluation_category" maxlength="100">
+                </label>
+                <label>
+                    Nota
+                    <input id="evaluation_score" type="number" min="0" max="10" step="0.01">
+                </label>
+                <label>
+                    Data
+                    <input id="evaluation_date" type="date" required>
+                </label>
+                <label class="span-2">
+                    Comentario
+                    <textarea id="evaluation_comment"></textarea>
+                </label>
+                <div class="actions span-2">
+                    <button id="evaluation-submit" class="primary" type="submit">Salvar avaliacao</button>
+                    <button type="button" onclick="resetEvaluationForm()">Limpar</button>
+                </div>
+            </form>
+        </div>
+
+        <div>
+            <h2>Analise comportamental</h2>
+            <form id="analysis-form">
+                <input id="analysis_id" type="hidden">
+                <label>
+                    Funcionario
+                    <select id="analysis_employee" required></select>
+                </label>
+                <label>
+                    Data
+                    <input id="analysis_date" type="date">
+                </label>
+                <label class="span-2">
+                    Resultado
+                    <textarea id="analysis_result"></textarea>
+                </label>
+                <div class="actions span-2">
+                    <button id="analysis-submit" class="primary" type="submit">Salvar analise</button>
+                    <button type="button" onclick="resetAnalysisForm()">Limpar</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section>
+        <h2>Funcionarios</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Setor</th>
+                    <th>Cargo</th>
+                    <th>Status</th>
+                    <th>Acoes</th>
+                </tr>
+                </thead>
+                <tbody id="employees-body"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section>
+        <h2>Avaliacoes de desempenho</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Funcionario</th>
+                    <th>Avaliador</th>
+                    <th>Categoria</th>
+                    <th>Nota</th>
+                    <th>Data</th>
+                    <th>Comentario</th>
+                    <th>Acoes</th>
+                </tr>
+                </thead>
+                <tbody id="evaluations-body"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section>
+        <h2>Analises comportamentais</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Funcionario</th>
+                    <th>Data</th>
+                    <th>Resultado</th>
+                    <th>Acoes</th>
+                </tr>
+                </thead>
+                <tbody id="analyses-body"></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<script>
+const apiBase = '/api/avaliacao/teste/api';
+let employees = [];
+let evaluations = [];
+let analyses = [];
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+        return parts.pop().split(';').shift();
+    }
+    return '';
+}
+
+function setStatus(text) {
+    document.querySelector('#status').textContent = text || '';
+}
+
+function cell(row, value) {
+    const td = document.createElement('td');
+    td.textContent = value ?? '';
+    row.appendChild(td);
+    return td;
+}
+
+function button(label, onClick, className) {
+    const element = document.createElement('button');
+    element.type = 'button';
+    element.textContent = label;
+    if (className) {
+        element.className = className;
+    }
+    element.addEventListener('click', onClick);
+    return element;
+}
+
+async function requestJson(url, options = {}) {
+    const response = await fetch(url, {
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+            ...(options.headers || {}),
+        },
+        ...options,
+    });
+
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+    if (!response.ok) {
+        throw new Error(JSON.stringify(data));
+    }
+    return data;
+}
+
+function fillEmployeeSelect(select, firstLabel) {
+    select.textContent = '';
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = firstLabel;
+    select.appendChild(empty);
+
+    employees.forEach((employee) => {
+        const option = document.createElement('option');
+        option.value = employee.id_funcionario;
+        option.textContent = `${employee.id_funcionario} - ${employee.nome || 'Sem nome'}`;
+        select.appendChild(option);
+    });
+}
+
+function emptyRow(body, colspan, text) {
+    const row = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = colspan;
+    td.textContent = text;
+    row.appendChild(td);
+    body.appendChild(row);
+}
+
+function renderEmployees() {
+    const body = document.querySelector('#employees-body');
+    body.textContent = '';
+    if (!employees.length) {
+        emptyRow(body, 7, 'Nenhum funcionario encontrado.');
+        return;
+    }
+
+    employees.forEach((employee) => {
+        const row = document.createElement('tr');
+        cell(row, employee.id_funcionario);
+        cell(row, employee.nome);
+        cell(row, employee.email);
+        cell(row, employee.setor_nome);
+        cell(row, employee.cargo_nome);
+        cell(row, employee.status);
+
+        const actions = cell(row, '');
+        actions.className = 'actions-cell';
+        actions.appendChild(button('Avaliar', () => selectEmployeeForEvaluation(employee.id_funcionario)));
+        actions.appendChild(button('Analisar', () => selectEmployeeForAnalysis(employee.id_funcionario)));
+        body.appendChild(row);
+    });
+}
+
+function renderEvaluations() {
+    const body = document.querySelector('#evaluations-body');
+    body.textContent = '';
+    if (!evaluations.length) {
+        emptyRow(body, 8, 'Nenhuma avaliacao encontrada.');
+        return;
+    }
+
+    evaluations.forEach((evaluation) => {
+        const row = document.createElement('tr');
+        cell(row, evaluation.id_avaliacao);
+        cell(row, evaluation.funcionario_nome || evaluation.fk_id_funcionario);
+        cell(row, evaluation.avaliador_nome || evaluation.fk_id_avaliador);
+        cell(row, evaluation.categoria);
+        cell(row, evaluation.nota);
+        cell(row, evaluation.data_avaliacao);
+        cell(row, evaluation.comentario);
+
+        const actions = cell(row, '');
+        actions.className = 'actions-cell';
+        actions.appendChild(button('Editar', () => editEvaluation(evaluation)));
+        actions.appendChild(button('Deletar', () => deleteEvaluation(evaluation.id_avaliacao), 'danger'));
+        body.appendChild(row);
+    });
+}
+
+function renderAnalyses() {
+    const body = document.querySelector('#analyses-body');
+    body.textContent = '';
+    if (!analyses.length) {
+        emptyRow(body, 5, 'Nenhuma analise encontrada.');
+        return;
+    }
+
+    analyses.forEach((analysis) => {
+        const row = document.createElement('tr');
+        cell(row, analysis.id_analise);
+        cell(row, analysis.funcionario_nome || analysis.fk_id_funcionario);
+        cell(row, analysis.data_analise);
+        cell(row, analysis.resultado);
+
+        const actions = cell(row, '');
+        actions.className = 'actions-cell';
+        actions.appendChild(button('Editar', () => editAnalysis(analysis)));
+        actions.appendChild(button('Deletar', () => deleteAnalysis(analysis.id_analise), 'danger'));
+        body.appendChild(row);
+    });
+}
+
+function selectEmployeeForEvaluation(id) {
+    document.querySelector('#evaluation_employee').value = id;
+}
+
+function selectEmployeeForAnalysis(id) {
+    document.querySelector('#analysis_employee').value = id;
+}
+
+function resetEvaluationForm() {
+    document.querySelector('#evaluation-form').reset();
+    document.querySelector('#evaluation_id').value = '';
+    document.querySelector('#evaluation-submit').textContent = 'Salvar avaliacao';
+}
+
+function resetAnalysisForm() {
+    document.querySelector('#analysis-form').reset();
+    document.querySelector('#analysis_id').value = '';
+    document.querySelector('#analysis-submit').textContent = 'Salvar analise';
+}
+
+function evaluationPayload() {
+    return {
+        fk_id_funcionario: document.querySelector('#evaluation_employee').value,
+        fk_id_avaliador: document.querySelector('#evaluation_reviewer').value,
+        categoria: document.querySelector('#evaluation_category').value,
+        nota: document.querySelector('#evaluation_score').value || null,
+        comentario: document.querySelector('#evaluation_comment').value,
+        data_avaliacao: document.querySelector('#evaluation_date').value,
+    };
+}
+
+function analysisPayload() {
+    return {
+        fk_id_funcionario: document.querySelector('#analysis_employee').value,
+        resultado: document.querySelector('#analysis_result').value,
+        data_analise: document.querySelector('#analysis_date').value || null,
+    };
+}
+
+function editEvaluation(evaluation) {
+    document.querySelector('#evaluation_id').value = evaluation.id_avaliacao;
+    document.querySelector('#evaluation_employee').value = evaluation.fk_id_funcionario;
+    document.querySelector('#evaluation_reviewer').value = evaluation.fk_id_avaliador;
+    document.querySelector('#evaluation_category').value = evaluation.categoria || '';
+    document.querySelector('#evaluation_score').value = evaluation.nota || '';
+    document.querySelector('#evaluation_date').value = evaluation.data_avaliacao || '';
+    document.querySelector('#evaluation_comment').value = evaluation.comentario || '';
+    document.querySelector('#evaluation-submit').textContent = 'Atualizar avaliacao';
+}
+
+function editAnalysis(analysis) {
+    document.querySelector('#analysis_id').value = analysis.id_analise;
+    document.querySelector('#analysis_employee').value = analysis.fk_id_funcionario;
+    document.querySelector('#analysis_date').value = analysis.data_analise || '';
+    document.querySelector('#analysis_result').value = analysis.resultado || '';
+    document.querySelector('#analysis-submit').textContent = 'Atualizar analise';
+}
+
+async function loadData() {
+    setStatus('Carregando...');
+    const options = await requestJson(apiBase + '/opcoes/');
+    const evaluationData = await requestJson(apiBase + '/avaliacoes/');
+    const analysisData = await requestJson(apiBase + '/analises/');
+
+    employees = options.funcionarios || [];
+    evaluations = evaluationData.results || [];
+    analyses = analysisData.results || [];
+
+    fillEmployeeSelect(document.querySelector('#evaluation_employee'), 'Selecione funcionario');
+    fillEmployeeSelect(document.querySelector('#evaluation_reviewer'), 'Selecione avaliador');
+    fillEmployeeSelect(document.querySelector('#analysis_employee'), 'Selecione funcionario');
+    renderEmployees();
+    renderEvaluations();
+    renderAnalyses();
+    setStatus('');
+}
+
+async function saveEvaluation(event) {
+    event.preventDefault();
+    const id = document.querySelector('#evaluation_id').value;
+    const url = id ? `${apiBase}/avaliacoes/${id}/` : `${apiBase}/avaliacoes/`;
+    const method = id ? 'PUT' : 'POST';
+    await requestJson(url, {
+        method,
+        body: JSON.stringify(evaluationPayload()),
+    });
+    resetEvaluationForm();
+    await loadData();
+    setStatus('Avaliacao salva.');
+}
+
+async function saveAnalysis(event) {
+    event.preventDefault();
+    const id = document.querySelector('#analysis_id').value;
+    const url = id ? `${apiBase}/analises/${id}/` : `${apiBase}/analises/`;
+    const method = id ? 'PUT' : 'POST';
+    await requestJson(url, {
+        method,
+        body: JSON.stringify(analysisPayload()),
+    });
+    resetAnalysisForm();
+    await loadData();
+    setStatus('Analise salva.');
+}
+
+async function deleteEvaluation(id) {
+    if (!window.confirm('Deletar avaliacao?')) {
+        return;
+    }
+    await requestJson(`${apiBase}/avaliacoes/${id}/`, { method: 'DELETE' });
+    await loadData();
+    setStatus('Avaliacao deletada.');
+}
+
+async function deleteAnalysis(id) {
+    if (!window.confirm('Deletar analise?')) {
+        return;
+    }
+    await requestJson(`${apiBase}/analises/${id}/`, { method: 'DELETE' });
+    await loadData();
+    setStatus('Analise deletada.');
+}
+
+document.querySelector('#evaluation-form').addEventListener('submit', (event) => {
+    saveEvaluation(event).catch((error) => setStatus(error.message));
+});
+
+document.querySelector('#analysis-form').addEventListener('submit', (event) => {
+    saveAnalysis(event).catch((error) => setStatus(error.message));
+});
+
+loadData().catch((error) => setStatus(error.message));
+</script>
+</body>
+</html>

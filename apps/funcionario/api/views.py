@@ -1,3 +1,4 @@
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -33,10 +34,11 @@ class FuncionarioViewSet(
     write_serializer_class = FuncionarioWriteSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_class = FuncionarioFilter
-    filterset_fields = ['id_funcionario', 'fk_id_setor', 'fk_id_cargo']
-    search_fields = ['nome', 'fk_id_setor__nome', 'fk_id_cargo__nome']
+    filterset_fields = ['id_funcionario', 'fk_id_setor', 'fk_id_cargo', 'status']
+    search_fields = ['nome', 'status', 'fk_id_setor__nome', 'fk_id_cargo__nome']
 
     def get_queryset(self):
+        """Restringe listagem ao proprio funcionario fora do RH/admin."""
         queryset = super().get_queryset()
         if self.user_has_global_access():
             return queryset
@@ -49,15 +51,27 @@ class FuncionarioViewSet(
 
     @action(detail=False, methods=['get'], url_path='rh/indicadores')
     def rh_indicadores(self, request):
+        """Retorna indicadores administrativos do painel de funcionarios."""
         self.assert_rh_admin_access()
+        status_counts = (
+            Funcionario.objects
+            .values('status')
+            .annotate(total=Count('id_funcionario'))
+            .order_by('status')
+        )
         return Response({
             'total_funcionarios': Funcionario.objects.count(),
             'total_contratos': Contrato.objects.count(),
             'total_planos_carreira': PlanoCarreira.objects.count(),
+            'funcionarios_por_status': {
+                item['status'] or 'sem_status': item['total']
+                for item in status_counts
+            },
         })
 
     @action(detail=True, methods=['get'], url_path='contratos')
     def contratos(self, request, pk=None):
+        """Lista contratos vinculados ao funcionario informado."""
         funcionario = self.get_object()
         return self.paginated_serializer_response(
             funcionario.contrato_set.all().order_by('id_contrato'),
@@ -66,12 +80,14 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['get'], url_path='rh/perfil')
     def rh_perfil(self, request, pk=None):
+        """Retorna perfil completo do funcionario para RH/admin."""
         self.assert_rh_admin_access()
         serializer = self.get_serializer(self.get_object())
         return Response(serializer.data)
 
     @action(detail=True, methods=['post', 'patch'], url_path='rh/folha-pagamento')
     def rh_folha_pagamento(self, request, pk=None):
+        """Sinaliza ponto futuro para arquivo de folha de pagamento."""
         self.assert_rh_admin_access()
         self.get_object()
         return Response(
@@ -81,21 +97,34 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['post'], url_path='rh/inativar')
     def rh_inativar(self, request, pk=None):
+        """Inativa funcionario preservando historico cadastral."""
         self.assert_rh_admin_access()
-        self.get_object()
-        return Response(
-            {'detail': 'Inativacao de funcionario ainda nao foi modelada.'},
-            status=status.HTTP_501_NOT_IMPLEMENTED,
-        )
+        funcionario = self.get_object()
+        funcionario.status = Funcionario.STATUS_INATIVO
+        funcionario.save(update_fields=['status'])
+        serializer = self.get_serializer(funcionario)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='rh/reativar')
+    def rh_reativar(self, request, pk=None):
+        """Reativa funcionario previamente inativado."""
+        self.assert_rh_admin_access()
+        funcionario = self.get_object()
+        funcionario.status = Funcionario.STATUS_ATIVO
+        funcionario.save(update_fields=['status'])
+        serializer = self.get_serializer(funcionario)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='meus-dados')
     def meus_dados(self, request, pk=None):
+        """Retorna dados do proprio funcionario autenticado."""
         funcionario = self.get_funcionario_comum_object()
         serializer = self.get_serializer(funcionario)
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='meus-contratos')
     def meus_contratos(self, request, pk=None):
+        """Lista contratos do proprio funcionario autenticado."""
         funcionario = self.get_funcionario_comum_object()
         return self.paginated_serializer_response(
             funcionario.contrato_set.all().order_by('id_contrato'),
@@ -104,6 +133,7 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['get'], url_path='meus-contratos-pdf')
     def meus_contratos_pdf(self, request, pk=None):
+        """Sinaliza ponto futuro para PDFs de contrato do funcionario."""
         self.assert_can_access_funcionario(pk)
         return Response(
             {'detail': 'Arquivos PDF de contrato ainda nao foram modelados.'},
@@ -112,6 +142,7 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['get'], url_path='folha-pagamento')
     def folha_pagamento(self, request, pk=None):
+        """Sinaliza ponto futuro para folha de pagamento do funcionario."""
         self.assert_can_access_funcionario(pk)
         return Response(
             {'detail': 'Folha de pagamento ainda nao foi modelada.'},
@@ -120,6 +151,7 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['get'], url_path='minhas-avaliacoes-desempenho')
     def minhas_avaliacoes_desempenho(self, request, pk=None):
+        """Lista avaliacoes de desempenho do proprio funcionario."""
         funcionario = self.get_funcionario_comum_object()
         return self.paginated_serializer_response(
             funcionario.avaliacaodesempenho_set.all().order_by('id_avaliacao'),
@@ -128,6 +160,7 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['get'], url_path='meu-plano-carreira')
     def meu_plano_carreira(self, request, pk=None):
+        """Lista planos de carreira relacionados ao cargo do funcionario."""
         funcionario = self.get_funcionario_comum_object()
         return self.paginated_serializer_response(
             PlanoCarreira.objects.filter(fk_id_cargo=funcionario.fk_id_cargo).order_by('id_plano'),
@@ -136,6 +169,7 @@ class FuncionarioViewSet(
 
     @action(detail=False, methods=['get'], url_path='lideranca/funcionarios-setor')
     def lideranca_funcionarios_setor(self, request):
+        """Lista funcionarios do setor da lideranca autenticada."""
         self.assert_lideranca_access()
         if self.user_has_global_access():
             return self.paginated_serializer_response(
@@ -151,6 +185,7 @@ class FuncionarioViewSet(
 
     @action(detail=False, methods=['get'], url_path='lideranca/planos-carreira-setor')
     def lideranca_planos_carreira_setor(self, request):
+        """Lista planos de carreira ligados ao setor da lideranca."""
         self.assert_lideranca_access()
         if self.user_has_global_access():
             return self.paginated_serializer_response(
@@ -168,6 +203,7 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['get'], url_path='lideranca/planos-carreira')
     def lideranca_planos_carreira(self, request, pk=None):
+        """Lista planos de carreira do funcionario no escopo da lideranca."""
         funcionario = self.get_funcionario_setor_lideranca(pk)
         return self.paginated_serializer_response(
             PlanoCarreira.objects.filter(fk_id_cargo=funcionario.fk_id_cargo).order_by('id_plano'),
@@ -176,6 +212,7 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['post'], url_path='lideranca/criar-plano-carreira')
     def lideranca_criar_plano_carreira(self, request, pk=None):
+        """Cria plano de carreira para funcionario no escopo da lideranca."""
         funcionario = self.get_funcionario_setor_lideranca(pk)
         data = request.data.copy()
         data['fk_id_cargo'] = funcionario.fk_id_cargo_id
@@ -191,6 +228,7 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['post'], url_path='lideranca/criar-avaliacao-desempenho')
     def lideranca_criar_avaliacao_desempenho(self, request, pk=None):
+        """Cria avaliacao de desempenho no escopo da lideranca."""
         funcionario = self.get_funcionario_setor_lideranca(pk)
         data = request.data.copy()
         data['fk_id_funcionario'] = funcionario.pk
@@ -219,6 +257,7 @@ class FuncionarioViewSet(
         url_path='lideranca/avaliacoes-desempenho/(?P<avaliacao_id>[^/.]+)/editar',
     )
     def lideranca_editar_avaliacao_desempenho(self, request, pk=None, avaliacao_id: int | None = None):
+        """Edita avaliacao de desempenho no escopo permitido a lideranca."""
         funcionario = self.get_funcionario_setor_lideranca(pk)
         avaliacao = get_object_or_404(
             AvaliacaoDesempenho,
@@ -245,6 +284,7 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['get'], url_path='analises-comportamentais')
     def analises_comportamentais(self, request, pk=None):
+        """Lista analises comportamentais vinculadas ao funcionario."""
         funcionario = self.get_object()
         return self.paginated_serializer_response(
             funcionario.analisecomportamental_set.all().order_by('id_analise'),
@@ -253,6 +293,7 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['get'], url_path='avaliacoes-recebidas')
     def avaliacoes_recebidas(self, request, pk=None):
+        """Lista avaliacoes recebidas pelo funcionario."""
         funcionario = self.get_object()
         return self.paginated_serializer_response(
             funcionario.avaliacaodesempenho_set.all().order_by('id_avaliacao'),
@@ -261,6 +302,7 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['get'], url_path='avaliacoes-realizadas')
     def avaliacoes_realizadas(self, request, pk=None):
+        """Lista avaliacoes realizadas pelo funcionario como avaliador."""
         funcionario = self.get_object()
         return self.paginated_serializer_response(
             funcionario.avaliacaodesempenho_fk_id_avaliador_set.all().order_by('id_avaliacao'),
@@ -283,6 +325,7 @@ class PlanoCarreiraViewSet(
     search_fields = ['descricao', 'requisitos', 'fk_id_cargo__nome']
 
     def get_queryset(self):
+        """Restringe planos ao cargo do funcionario fora do RH/admin."""
         queryset = super().get_queryset()
         if self.user_has_global_access():
             return queryset
@@ -295,6 +338,7 @@ class PlanoCarreiraViewSet(
 
     @action(detail=False, methods=['get'], url_path='rh/indicadores')
     def rh_indicadores(self, request):
+        """Retorna total de planos de carreira para RH/admin."""
         self.assert_rh_admin_access()
         return Response({
             'total_planos_carreira': PlanoCarreira.objects.count(),
@@ -306,6 +350,7 @@ class PlanoCarreiraViewSet(
         url_path='rh/criar-para-funcionario/(?P<funcionario_id>[^/.]+)',
     )
     def rh_criar_para_funcionario(self, request, funcionario_id: int | None = None):
+        """Cria plano de carreira administrativo para funcionario alvo."""
         self.assert_rh_admin_access()
         get_object_or_404(Funcionario, pk=funcionario_id)
 
@@ -339,6 +384,7 @@ class ContratoViewSet(
     search_fields = ['tipo_contrato', 'fk_id_funcionario__nome']
 
     def get_queryset(self):
+        """Restringe contratos ao proprio funcionario fora do RH/admin."""
         queryset = super().get_queryset()
         if self.user_has_global_access():
             return queryset
@@ -351,6 +397,7 @@ class ContratoViewSet(
 
     @action(detail=True, methods=['post', 'patch'], url_path='rh/arquivo')
     def rh_arquivo(self, request, pk=None):
+        """Sinaliza ponto futuro para arquivo de contrato pelo RH/admin."""
         self.assert_rh_admin_access()
         self.get_object()
         return Response(

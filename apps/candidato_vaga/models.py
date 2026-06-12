@@ -1,14 +1,24 @@
+from django.conf import settings
 from django.db import models
 
 
 class Candidato(models.Model):
     cpf_candidato = models.CharField(primary_key=True, max_length=15)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        models.DO_NOTHING,
+        db_column='user_id',
+        related_name='candidato',
+        blank=True,
+        null=True,
+    )
     nome = models.CharField(max_length=150, blank=True, null=True)
     email = models.CharField(max_length=150, blank=True, null=True)
     telefone = models.CharField(max_length=20, blank=True, null=True)
     curriculo = models.TextField(blank=True, null=True)
 
     def __str__(self):
+        """Retorna nome ou identificador do candidato sem contato."""
         return self.nome or f'Candidato {self.cpf_candidato}'
 
     class Meta:
@@ -27,6 +37,7 @@ class Vaga(models.Model):
                                      blank=True, null=True)
 
     def __str__(self):
+        """Retorna titulo ou identificador da vaga."""
         return self.titulo or f'Vaga {self.id_vaga}'
 
     class Meta:
@@ -41,6 +52,7 @@ class CandidatoVaga(models.Model):
     status_processo = models.CharField(max_length=50, blank=True, null=True)
 
     def __str__(self):
+        """Retorna chave do vinculo candidato-vaga."""
         return f'Candidato {self.cpf_candidato_id} - Vaga {self.id_vaga_id}'
 
     class Meta:

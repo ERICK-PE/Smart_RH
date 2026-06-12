@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Teste funcionarios</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            background: #f3f4f6;
+            color: #111827;
+        }
+
+        main {
+            width: min(1180px, calc(100% - 32px));
+            margin: 24px auto;
+        }
+
+        h1 {
+            margin: 0 0 16px;
+            font-size: 26px;
+        }
+
+        section {
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        form {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        label {
+            display: grid;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        input,
+        select {
+            border: 1px solid #9ca3af;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .actions {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button {
+            border: 0;
+            border-radius: 6px;
+            padding: 10px 14px;
+            cursor: pointer;
+            background: #2563eb;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        button.secondary {
+            background: #4b5563;
+        }
+
+        button.danger {
+            background: #b91c1c;
+        }
+
+        .message {
+            min-height: 20px;
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 980px;
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 10px;
+            text-align: left;
+            font-size: 14px;
+            vertical-align: top;
+        }
+
+        th {
+            background: #f9fafb;
+        }
+
+        td:last-child {
+            white-space: nowrap;
+        }
+
+        @media (max-width: 760px) {
+            form {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Teste funcionarios</h1>
+
+    <section>
+        <form id="funcionario-form">
+            <input type="hidden" id="id_funcionario">
+
+            <label>
+                Nome
+                <input id="nome" name="nome" required minlength="3">
+            </label>
+
+            <label>
+                CPF
+                <input id="cpf" name="cpf" required placeholder="000.000.000-00">
+            </label>
+
+            <label>
+                E-mail
+                <input id="email" name="email" type="email">
+            </label>
+
+            <label>
+                Telefone
+                <input id="telefone" name="telefone">
+            </label>
+
+            <label>
+                Data admissao
+                <input id="data_admissao" name="data_admissao" type="date" required>
+            </label>
+
+            <label>
+                Status
+                <select id="status" name="status"></select>
+            </label>
+
+            <label>
+                Setor
+                <select id="fk_id_setor" name="fk_id_setor" required></select>
+            </label>
+
+            <label>
+                Cargo
+                <select id="fk_id_cargo" name="fk_id_cargo" required></select>
+            </label>
+
+            <div class="actions">
+                <button type="submit" id="submit-button">Cadastrar</button>
+                <button type="button" class="secondary" id="clear-button">Limpar</button>
+                <span class="message" id="message"></span>
+            </div>
+        </form>
+    </section>
+
+    <section>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>CPF</th>
+                        <th>E-mail</th>
+                        <th>Telefone</th>
+                        <th>Admissao</th>
+                        <th>Status</th>
+                        <th>Setor</th>
+                        <th>Cargo</th>
+                        <th>Acoes</th>
+                    </tr>
+                </thead>
+                <tbody id="funcionarios-body"></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<script>
+const apiBase = '/api/funcionario/teste/api';
+const form = document.querySelector('#funcionario-form');
+const body = document.querySelector('#funcionarios-body');
+const message = document.querySelector('#message');
+const submitButton = document.querySelector('#submit-button');
+const clearButton = document.querySelector('#clear-button');
+let funcionarios = [];
+
+function getCookie(name) {
+    return document.cookie
+        .split('; ')
+        .find((row) => row.startsWith(name + '='))
+        ?.split('=')[1] || '';
+}
+
+function setMessage(text) {
+    message.textContent = text || '';
+}
+
+function fillSelect(selector, items, valueKey, labelKey) {
+    const select = document.querySelector(selector);
+    select.innerHTML = '<option value="">Selecione</option>';
+    items.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item[valueKey];
+        option.textContent = item[labelKey];
+        select.appendChild(option);
+    });
+}
+
+function formPayload() {
+    return {
+        nome: document.querySelector('#nome').value,
+        cpf: document.querySelector('#cpf').value,
+        email: document.querySelector('#email').value || null,
+        telefone: document.querySelector('#telefone').value || null,
+        data_admissao: document.querySelector('#data_admissao').value,
+        status: document.querySelector('#status').value,
+        fk_id_setor: document.querySelector('#fk_id_setor').value,
+        fk_id_cargo: document.querySelector('#fk_id_cargo').value,
+    };
+}
+
+function editFuncionario(funcionario) {
+    document.querySelector('#id_funcionario').value = funcionario.id_funcionario;
+    document.querySelector('#nome').value = funcionario.nome || '';
+    document.querySelector('#cpf').value = funcionario.cpf || '';
+    document.querySelector('#email').value = funcionario.email || '';
+    document.querySelector('#telefone').value = funcionario.telefone || '';
+    document.querySelector('#data_admissao').value = funcionario.data_admissao || '';
+    document.querySelector('#status').value = funcionario.status || 'ativo';
+    document.querySelector('#fk_id_setor').value = funcionario.fk_id_setor || '';
+    document.querySelector('#fk_id_cargo').value = funcionario.fk_id_cargo || '';
+    submitButton.textContent = 'Salvar';
+    setMessage('Editando funcionario ' + funcionario.id_funcionario);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function clearForm() {
+    form.reset();
+    document.querySelector('#id_funcionario').value = '';
+    document.querySelector('#status').value = 'ativo';
+    submitButton.textContent = 'Cadastrar';
+    setMessage('');
+}
+
+function appendCell(row, value) {
+    const cell = document.createElement('td');
+    cell.textContent = value ?? '';
+    row.appendChild(cell);
+}
+
+function renderTable() {
+    body.innerHTML = '';
+
+    if (!funcionarios.length) {
+        body.innerHTML = '<tr><td colspan="10">Nenhum funcionario encontrado.</td></tr>';
+        return;
+    }
+
+    funcionarios.forEach((funcionario) => {
+        const row = document.createElement('tr');
+        appendCell(row, funcionario.id_funcionario);
+        appendCell(row, funcionario.nome);
+        appendCell(row, funcionario.cpf);
+        appendCell(row, funcionario.email);
+        appendCell(row, funcionario.telefone);
+        appendCell(row, funcionario.data_admissao);
+        appendCell(row, funcionario.status);
+        appendCell(row, funcionario.setor_nome || funcionario.fk_id_setor);
+        appendCell(row, funcionario.cargo_nome || funcionario.fk_id_cargo);
+
+        const actionCell = document.createElement('td');
+        const editButton = document.createElement('button');
+        const deleteButton = document.createElement('button');
+
+        editButton.type = 'button';
+        editButton.className = 'secondary';
+        editButton.textContent = 'Editar';
+        editButton.addEventListener('click', () => editFuncionario(funcionario));
+
+        deleteButton.type = 'button';
+        deleteButton.className = 'danger';
+        deleteButton.textContent = 'Deletar';
+        deleteButton.addEventListener('click', () => deleteFuncionario(funcionario.id_funcionario));
+
+        actionCell.appendChild(editButton);
+        actionCell.appendChild(document.createTextNode(' '));
+        actionCell.appendChild(deleteButton);
+        row.appendChild(actionCell);
+        body.appendChild(row);
+    });
+}
+
+async function requestJson(url, options = {}) {
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+            ...(options.headers || {}),
+        },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(JSON.stringify(data));
+    }
+    return data;
+}
+
+async function loadOptions() {
+    const data = await requestJson(apiBase + '/opcoes/');
+    fillSelect('#fk_id_setor', data.setores, 'id_setor', 'nome');
+    fillSelect('#fk_id_cargo', data.cargos, 'id_cargo', 'nome');
+    fillSelect('#status', data.status, 'value', 'label');
+    document.querySelector('#status').value = 'ativo';
+}
+
+async function loadFuncionarios() {
+    const data = await requestJson(apiBase + '/funcionarios/');
+    funcionarios = data.results;
+    renderTable();
+}
+
+async function saveFuncionario(event) {
+    event.preventDefault();
+    const id = document.querySelector('#id_funcionario').value;
+    const url = id ? `${apiBase}/funcionarios/${id}/` : `${apiBase}/funcionarios/`;
+    const method = id ? 'PUT' : 'POST';
+
+    try {
+        await requestJson(url, {
+            method,
+            body: JSON.stringify(formPayload()),
+        });
+        clearForm();
+        await loadFuncionarios();
+        setMessage('Salvo.');
+    } catch (error) {
+        setMessage('Erro: ' + error.message);
+    }
+}
+
+async function deleteFuncionario(id) {
+    if (!window.confirm('Deletar funcionario ' + id + '?')) {
+        return;
+    }
+
+    try {
+        await requestJson(`${apiBase}/funcionarios/${id}/`, { method: 'DELETE' });
+        await loadFuncionarios();
+        setMessage('Deletado.');
+    } catch (error) {
+        setMessage('Erro: ' + error.message);
+    }
+}
+
+form.addEventListener('submit', saveFuncionario);
+clearButton.addEventListener('click', clearForm);
+
+loadOptions()
+    .then(loadFuncionarios)
+    .catch((error) => setMessage('Erro: ' + error.message));
+</script>
+</body>
+</html>

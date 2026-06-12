@@ -8,6 +8,7 @@ class FuncionarioFilter(filters.FilterSet):
     nome = filters.CharFilter(field_name='nome', lookup_expr='icontains')
     setor = filters.NumberFilter(field_name='fk_id_setor')
     cargo = filters.NumberFilter(field_name='fk_id_cargo')
+    status = filters.CharFilter(field_name='status', lookup_expr='iexact')
     setor_nome = filters.CharFilter(field_name='fk_id_setor__nome', lookup_expr='icontains')
     cargo_nome = filters.CharFilter(field_name='fk_id_cargo__nome', lookup_expr='icontains')
     data_admissao_inicio = filters.DateFilter(field_name='data_admissao', lookup_expr='gte')
@@ -20,6 +21,7 @@ class FuncionarioFilter(filters.FilterSet):
             'nome',
             'setor',
             'cargo',
+            'status',
             'setor_nome',
             'cargo_nome',
             'data_admissao_inicio',
@@ -37,6 +39,7 @@ class PlanoCarreiraFilter(filters.FilterSet):
         fields = ['id_plano', 'cargo', 'cargo_nome', 'texto']
 
     def filter_texto(self, queryset, name, value):
+        """Busca texto em descricao ou requisitos do plano."""
         return queryset.filter(Q(descricao__icontains=value) | Q(requisitos__icontains=value))
 
 
