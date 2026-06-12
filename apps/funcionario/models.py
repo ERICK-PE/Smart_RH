@@ -3,6 +3,13 @@ from django.db import models
 
 
 class Funcionario(models.Model):
+    STATUS_ATIVO = 'ativo'
+    STATUS_INATIVO = 'inativo'
+    STATUS_CHOICES = [
+        (STATUS_ATIVO, 'Ativo'),
+        (STATUS_INATIVO, 'Inativo'),
+    ]
+
     id_funcionario = models.AutoField(primary_key=True)
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -17,6 +24,7 @@ class Funcionario(models.Model):
     email = models.CharField(unique=True, max_length=150, blank=True, null=True)
     telefone = models.CharField(max_length=20, blank=True, null=True)
     data_admissao = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ATIVO)
     fk_id_setor = models.ForeignKey('setor.Setor', 
                                     models.DO_NOTHING, 
                                     db_column='fk_id_setor')

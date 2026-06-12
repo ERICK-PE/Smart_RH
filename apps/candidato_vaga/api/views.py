@@ -1,15 +1,17 @@
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotAuthenticated, PermissionDenied
+from rest_framework.exceptions import NotAuthenticated, NotFound, PermissionDenied
 from rest_framework.response import Response
 
 from apps.api_mixins import RHAdminAccessMixin, RHAdminModelViewSetMixin, ResumoActionMixin
 from apps.candidato_vaga.api.filters import CandidatoFilter, CandidatoVagaFilter, VagaFilter
 from apps.candidato_vaga.api.serializers import (
     CandidaturaCreateSerializer,
+    CandidatoRegistrationSerializer,
     CandidatoReadSerializer,
     CandidatoWriteSerializer,
     CandidatoVagaReadSerializer,
@@ -32,10 +34,12 @@ class CandidatoAccessMixin(RHAdminAccessMixin):
                 raise NotAuthenticated('Autenticacao obrigatoria.')
             return None
 
-        cpf_candidato = getattr(user, 'cpf_candidato', None)
-        if cpf_candidato is None:
+        try:
             candidato = getattr(user, 'candidato', None)
-            cpf_candidato = getattr(candidato, 'pk', None)
+        except ObjectDoesNotExist:
+            candidato = None
+
+        cpf_candidato = getattr(candidato, 'pk', None)
 
         if cpf_candidato is None and required:
             raise PermissionDenied('Usuario sem vinculo com candidato.')
@@ -54,14 +58,46 @@ class CandidatoAccessMixin(RHAdminAccessMixin):
             raise PermissionDenied('Candidato so pode acessar os proprios dados.')
 
 
-class CandidatoViewSet(CandidatoAccessMixin, ResumoActionMixin, viewsets.ReadOnlyModelViewSet):
+class CandidatoViewSet(CandidatoAccessMixin, ResumoActionMixin, viewsets.ModelViewSet):
+    candidate_self_write_actions = {
+        'create',
+        'update',
+        'partial_update',
+    }
+
     queryset = Candidato.objects.all().order_by('cpf_candidato')
     serializer_class = CandidatoReadSerializer
+    write_serializer_class = CandidatoWriteSerializer
     permission_classes = [permissions.IsAuthenticated]
     lookup_value_regex = r'[^/]+'
     filterset_class = CandidatoFilter
     filterset_fields = ['cpf_candidato', 'nome']
     search_fields = ['nome']
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        self.assert_candidato_write_policy()
+
+    def assert_candidato_write_policy(self):
+        if getattr(self, 'action', None) in self.candidate_self_write_actions:
+            if self.user_has_rh_admin_access():
+                raise PermissionDenied('RH/admin nao cria nem edita candidato diretamente.')
+
+        if getattr(self, 'action', None) == 'destroy':
+            self.assert_rh_admin_access()
+
+    def get_serializer_class(self):
+        if getattr(self, 'action', None) in self.candidate_self_write_actions:
+            return self.write_serializer_class
+
+        return super().get_serializer_class()
+
+    def perform_create(self, serializer):
+        self.assert_can_access_candidato(
+            serializer.validated_data['cpf_candidato'],
+            allow_unlinked=True,
+        )
+        serializer.save(user=self.request.user)
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -79,6 +115,22 @@ class CandidatoViewSet(CandidatoAccessMixin, ResumoActionMixin, viewsets.ReadOnl
         self.assert_can_access_candidato(candidato.pk)
         return candidato
 
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='registrar',
+        permission_classes=[permissions.AllowAny],
+    )
+    def registrar(self, request):
+        serializer = CandidatoRegistrationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        candidato = serializer.save()
+
+        return Response(
+            CandidatoReadSerializer(candidato, context=self.get_serializer_context()).data,
+            status=status.HTTP_201_CREATED,
+        )
+
     @action(detail=False, methods=['post'], url_path='criar')
     def criar(self, request):
         serializer = CandidatoWriteSerializer(data=request.data)
@@ -90,7 +142,7 @@ class CandidatoViewSet(CandidatoAccessMixin, ResumoActionMixin, viewsets.ReadOnl
 
         try:
             with transaction.atomic():
-                candidato = serializer.save()
+                candidato = serializer.save(user=request.user)
         except IntegrityError:
             return Response(
                 {'cpf_candidato': ['Ja existe candidato com este CPF.']},
@@ -263,13 +315,48 @@ class VagaViewSet(
         return Response(CandidatoVagaReadSerializer(processo, context=self.get_serializer_context()).data)
 
 
-class CandidatoVagaViewSet(CandidatoAccessMixin, ResumoActionMixin, viewsets.ReadOnlyModelViewSet):
+class CandidatoVagaViewSet(
+    RHAdminModelViewSetMixin,
+    CandidatoAccessMixin,
+    ResumoActionMixin,
+    viewsets.ModelViewSet,
+):
     queryset = CandidatoVaga.objects.all().order_by('cpf_candidato', 'id_vaga')
     serializer_class = CandidatoVagaReadSerializer
+    write_serializer_class = CandidatoVagaWriteSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_value_regex = r'[^/]+'
     filterset_class = CandidatoVagaFilter
     filterset_fields = ['cpf_candidato', 'id_vaga', 'status_processo']
     search_fields = ['status_processo', 'id_vaga__titulo']
+
+    def parse_composite_lookup(self, lookup_value):
+        if not lookup_value or ':' not in lookup_value:
+            raise NotFound('Use o formato cpf_candidato:id_vaga para detalhe do vinculo.')
+
+        cpf_candidato, id_vaga = lookup_value.rsplit(':', 1)
+        if not cpf_candidato or not id_vaga:
+            raise NotFound('Use o formato cpf_candidato:id_vaga para detalhe do vinculo.')
+
+        return cpf_candidato, id_vaga
+
+    def get_object(self):
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        lookup_value = self.kwargs.get(lookup_url_kwarg)
+
+        if lookup_value:
+            cpf_candidato, id_vaga = self.parse_composite_lookup(lookup_value)
+            obj = (
+                self.filter_queryset(self.get_queryset())
+                .filter(cpf_candidato_id=cpf_candidato, id_vaga_id=id_vaga)
+                .first()
+            )
+            if obj is None:
+                raise NotFound('Vinculo candidato-vaga nao encontrado.')
+            self.check_object_permissions(self.request, obj)
+            return obj
+
+        return super().get_object()
 
     def get_queryset(self):
         queryset = super().get_queryset()

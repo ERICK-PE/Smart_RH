@@ -1,3 +1,6 @@
+from django.contrib.auth import get_user_model, password_validation
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -58,6 +61,7 @@ class CandidatoReadSerializer(serializers.ModelSerializer):
         model = Candidato
         fields = [
             'cpf_candidato',
+            'user',
             'nome',
             'email',
             'telefone',
@@ -116,12 +120,15 @@ class CandidatoWriteSerializer(serializers.ModelSerializer):
         model = Candidato
         fields = [
             'cpf_candidato',
+            'user',
             'nome',
             'email',
             'telefone',
             'curriculo',
         ]
-        read_only_fields = []
+        read_only_fields = [
+            'user',
+        ]
 
     def validate_cpf_candidato(self, value):
         if self.instance and str(self.instance.pk) == str(value):
@@ -148,6 +155,91 @@ class CandidatoWriteSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class CandidatoRegistrationSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+    cpf_candidato = serializers.CharField(
+        max_length=15,
+        validators=[cpf_format_validator],
+    )
+    nome = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        validators=nome_validators,
+    )
+    email = serializers.EmailField()
+    telefone = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        validators=[phone_format_validator],
+    )
+    curriculo = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        validators=[safe_text_validator],
+    )
+
+    def validate_username(self, value):
+        value = normalize_required_text(value, 'username')
+        UserModel = get_user_model()
+
+        if UserModel.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError('Ja existe usuario com este username.')
+
+        return value
+
+    def validate_cpf_candidato(self, value):
+        if Candidato.objects.filter(pk=value).exists():
+            raise serializers.ValidationError('Ja existe candidato com este CPF.')
+
+        return value
+
+    def validate(self, attrs):
+        UserModel = get_user_model()
+        email = normalize_required_text(attrs.get('email'), 'email')
+
+        if UserModel.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError({
+                'email': 'Ja existe usuario com este e-mail.',
+            })
+
+        password_user = UserModel(
+            username=attrs.get('username'),
+            email=email,
+        )
+        try:
+            password_validation.validate_password(attrs.get('password'), user=password_user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({'password': list(exc.messages)}) from exc
+
+        attrs['email'] = email
+        if 'nome' in attrs:
+            attrs['nome'] = normalize_optional_text(attrs.get('nome'))
+        if 'telefone' in attrs:
+            attrs['telefone'] = normalize_optional_text(attrs.get('telefone'))
+        if 'curriculo' in attrs:
+            attrs['curriculo'] = normalize_optional_text(attrs.get('curriculo'))
+
+        return attrs
+
+    def create(self, validated_data):
+        UserModel = get_user_model()
+        username = validated_data.pop('username')
+        password = validated_data.pop('password')
+        email = validated_data.get('email')
+
+        with transaction.atomic():
+            user = UserModel.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+            )
+            return Candidato.objects.create(user=user, **validated_data)
+
+
 class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
     cpf_candidato = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
@@ -158,6 +250,7 @@ class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
         model = Candidato
         fields = [
             'cpf_candidato',
+            'user',
             'nome',
             'email',
             'telefone',
@@ -299,6 +392,22 @@ class CandidatoVagaWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'Candidato e vaga sao obrigatorios para criar o vinculo.'
             )
+
+        candidato = attrs.get('cpf_candidato') or getattr(self.instance, 'cpf_candidato', None)
+        vaga = attrs.get('id_vaga') or getattr(self.instance, 'id_vaga', None)
+
+        if candidato and vaga:
+            duplicate_queryset = CandidatoVaga.objects.filter(cpf_candidato=candidato, id_vaga=vaga)
+            if self.instance is not None:
+                duplicate_queryset = duplicate_queryset.exclude(
+                    cpf_candidato_id=getattr(self.instance, 'cpf_candidato_id', None),
+                    id_vaga_id=getattr(self.instance, 'id_vaga_id', None),
+                )
+
+            if duplicate_queryset.exists():
+                raise serializers.ValidationError({
+                    'id_vaga': 'Candidato ja inscrito nesta vaga.',
+                })
 
         if 'status_processo' in attrs:
             attrs['status_processo'] = normalize_optional_text(attrs.get('status_processo'))

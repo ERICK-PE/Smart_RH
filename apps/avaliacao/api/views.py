@@ -1,3 +1,4 @@
+from django.db.models import Avg
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -84,9 +85,13 @@ class AvaliacaoDesempenhoViewSet(
     @action(detail=False, methods=['get'], url_path='rh/indicadores')
     def rh_indicadores(self, request):
         self.assert_rh_admin_access()
+        avaliacoes = self.filter_queryset(self.get_queryset())
+        media_nota = avaliacoes.aggregate(media_nota=Avg('nota'))['media_nota']
+
         return Response({
-            'total_avaliacoes_desempenho': AvaliacaoDesempenho.objects.count(),
+            'total_avaliacoes_desempenho': avaliacoes.count(),
             'total_analises_comportamentais': AnaliseComportamental.objects.count(),
+            'media_nota_avaliacoes_desempenho': float(media_nota) if media_nota is not None else None,
         })
 
     @action(detail=True, methods=['get'], url_path='funcionario')

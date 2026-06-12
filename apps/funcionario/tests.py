@@ -1,10 +1,13 @@
 from types import SimpleNamespace
 
-from django.test import SimpleTestCase
+from django.http import Http404
+from django.test import RequestFactory, SimpleTestCase, override_settings
+from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
 from apps.api_mixins import FuncionarioComumAccessMixin, RHAdminAccessMixin
-from apps.funcionario.api.serializers import FuncionarioReadSerializer
+from apps.funcionario.api.test_views import funcionario_test_page
+from apps.funcionario.api.serializers import FuncionarioReadSerializer, FuncionarioWriteSerializer
 from apps.funcionario.models import Funcionario
 
 
@@ -107,3 +110,49 @@ class FuncionarioReadSerializerTests(SimpleTestCase):
         self.assertEqual(data['cpf'], '***.***.***-**')
         self.assertEqual(data['email'], 'm***@example.com')
         self.assertEqual(data['telefone'], '***********')
+
+    def test_serializer_expoe_status(self):
+        funcionario = Funcionario(
+            id_funcionario=1,
+            nome='Maria',
+            cpf='123.456.789-00',
+            email='maria@example.com',
+            telefone='11999999999',
+            data_admissao='2024-01-01',
+            status=Funcionario.STATUS_ATIVO,
+        )
+
+        data = FuncionarioReadSerializer(funcionario).data
+
+        self.assertEqual(data['status'], Funcionario.STATUS_ATIVO)
+
+
+class FuncionarioWriteSerializerTests(SimpleTestCase):
+    def test_status_aceita_apenas_valores_validos(self):
+        serializer = FuncionarioWriteSerializer()
+
+        self.assertEqual(serializer.validate_status('Ativo'), Funcionario.STATUS_ATIVO)
+
+        with self.assertRaises(serializers.ValidationError):
+            serializer.validate_status('bloqueado')
+
+
+class FuncionarioTestPageTests(SimpleTestCase):
+    @override_settings(DEBUG=True)
+    def test_tela_teste_renderiza_form_tabela_e_botoes(self):
+        request = RequestFactory().get('/api/funcionario/teste/')
+
+        response = funcionario_test_page(request)
+        content = response.content.decode('utf-8')
+
+        self.assertContains(response, '<form id="funcionario-form"', html=False)
+        self.assertIn('<tbody id="funcionarios-body"></tbody>', content)
+        self.assertIn('Editar', content)
+        self.assertIn('Deletar', content)
+
+    @override_settings(DEBUG=False)
+    def test_tela_teste_fica_indisponivel_fora_de_debug(self):
+        request = RequestFactory().get('/api/funcionario/teste/')
+
+        with self.assertRaises(Http404):
+            funcionario_test_page(request)

@@ -1,8 +1,17 @@
+from django.conf import settings
 from django.db import models
 
 
 class Candidato(models.Model):
     cpf_candidato = models.CharField(primary_key=True, max_length=15)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        models.DO_NOTHING,
+        db_column='user_id',
+        related_name='candidato',
+        blank=True,
+        null=True,
+    )
     nome = models.CharField(max_length=150, blank=True, null=True)
     email = models.CharField(max_length=150, blank=True, null=True)
     telefone = models.CharField(max_length=20, blank=True, null=True)

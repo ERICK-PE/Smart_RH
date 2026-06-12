@@ -63,6 +63,7 @@ class FuncionarioReadSerializer(serializers.ModelSerializer):
             'email',
             'telefone',
             'data_admissao',
+            'status',
             'fk_id_setor',
             'fk_id_cargo',
         ]
@@ -95,6 +96,7 @@ class FuncionarioWriteSerializer(serializers.ModelSerializer):
         allow_null=True,
         validators=[phone_format_validator],
     )
+    status = serializers.CharField(required=False)
 
     class Meta:
         model = Funcionario
@@ -106,6 +108,7 @@ class FuncionarioWriteSerializer(serializers.ModelSerializer):
             'email',
             'telefone',
             'data_admissao',
+            'status',
             'fk_id_setor',
             'fk_id_cargo',
         ]
@@ -115,6 +118,15 @@ class FuncionarioWriteSerializer(serializers.ModelSerializer):
 
     def validate_nome(self, value):
         return normalize_required_text(value, 'nome')
+
+    def validate_status(self, value):
+        value = normalize_required_text(value, 'status').lower()
+        valid_statuses = {choice[0] for choice in Funcionario.STATUS_CHOICES}
+
+        if value not in valid_statuses:
+            raise serializers.ValidationError('Status deve ser ativo ou inativo.')
+
+        return value
 
     def validate(self, attrs):
         data_admissao = attrs.get('data_admissao')
@@ -147,6 +159,7 @@ class FuncionarioComRelacionamentosReadSerializer(serializers.ModelSerializer):
             'email',
             'telefone',
             'data_admissao',
+            'status',
             'fk_id_setor',
             'fk_id_cargo',
             'contrato_set',

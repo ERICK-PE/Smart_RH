@@ -1,3 +1,4 @@
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -33,8 +34,8 @@ class FuncionarioViewSet(
     write_serializer_class = FuncionarioWriteSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_class = FuncionarioFilter
-    filterset_fields = ['id_funcionario', 'fk_id_setor', 'fk_id_cargo']
-    search_fields = ['nome', 'fk_id_setor__nome', 'fk_id_cargo__nome']
+    filterset_fields = ['id_funcionario', 'fk_id_setor', 'fk_id_cargo', 'status']
+    search_fields = ['nome', 'status', 'fk_id_setor__nome', 'fk_id_cargo__nome']
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -50,10 +51,20 @@ class FuncionarioViewSet(
     @action(detail=False, methods=['get'], url_path='rh/indicadores')
     def rh_indicadores(self, request):
         self.assert_rh_admin_access()
+        status_counts = (
+            Funcionario.objects
+            .values('status')
+            .annotate(total=Count('id_funcionario'))
+            .order_by('status')
+        )
         return Response({
             'total_funcionarios': Funcionario.objects.count(),
             'total_contratos': Contrato.objects.count(),
             'total_planos_carreira': PlanoCarreira.objects.count(),
+            'funcionarios_por_status': {
+                item['status'] or 'sem_status': item['total']
+                for item in status_counts
+            },
         })
 
     @action(detail=True, methods=['get'], url_path='contratos')
@@ -82,11 +93,20 @@ class FuncionarioViewSet(
     @action(detail=True, methods=['post'], url_path='rh/inativar')
     def rh_inativar(self, request, pk=None):
         self.assert_rh_admin_access()
-        self.get_object()
-        return Response(
-            {'detail': 'Inativacao de funcionario ainda nao foi modelada.'},
-            status=status.HTTP_501_NOT_IMPLEMENTED,
-        )
+        funcionario = self.get_object()
+        funcionario.status = Funcionario.STATUS_INATIVO
+        funcionario.save(update_fields=['status'])
+        serializer = self.get_serializer(funcionario)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='rh/reativar')
+    def rh_reativar(self, request, pk=None):
+        self.assert_rh_admin_access()
+        funcionario = self.get_object()
+        funcionario.status = Funcionario.STATUS_ATIVO
+        funcionario.save(update_fields=['status'])
+        serializer = self.get_serializer(funcionario)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='meus-dados')
     def meus_dados(self, request, pk=None):
