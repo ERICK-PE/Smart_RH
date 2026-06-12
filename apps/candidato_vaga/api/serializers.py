@@ -17,10 +17,12 @@ from apps.validators import (
 
 
 def mask_cpf(value):
+    """Mascara CPF quando contexto nao pode ver dado sensivel."""
     return '***.***.***-**' if value else value
 
 
 def mask_email(value):
+    """Mascara parte local do e-mail quando leitura nao e privilegiada."""
     if not value or '@' not in value:
         return value
 
@@ -30,10 +32,12 @@ def mask_email(value):
 
 
 def mask_phone(value):
+    """Mascara telefone quando contexto nao pode ver dado sensivel."""
     return '***********' if value else value
 
 
 def can_view_candidato_sensitive(serializer, candidato):
+    """Indica se contexto pode ver dados pessoais do candidato."""
     request = serializer.context.get('request')
     view = serializer.context.get('view')
     user = getattr(request, 'user', None)
@@ -71,21 +75,25 @@ class CandidatoReadSerializer(serializers.ModelSerializer):
         depth = 1
 
     def get_cpf_candidato(self, obj) -> str | None:
+        """Retorna CPF real ou mascarado conforme permissao."""
         if can_view_candidato_sensitive(self, obj):
             return obj.cpf_candidato
         return mask_cpf(obj.cpf_candidato)
 
     def get_email(self, obj) -> str | None:
+        """Retorna e-mail real ou mascarado conforme permissao."""
         if can_view_candidato_sensitive(self, obj):
             return obj.email
         return mask_email(obj.email)
 
     def get_telefone(self, obj) -> str | None:
+        """Retorna telefone real ou mascarado conforme permissao."""
         if can_view_candidato_sensitive(self, obj):
             return obj.telefone
         return mask_phone(obj.telefone)
 
     def get_curriculo(self, obj) -> str | None:
+        """Retorna curriculo apenas para contexto autorizado."""
         if can_view_candidato_sensitive(self, obj):
             return obj.curriculo
         return None
@@ -131,6 +139,7 @@ class CandidatoWriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate_cpf_candidato(self, value):
+        """Bloqueia duplicidade de CPF no cadastro de candidato."""
         if self.instance and str(self.instance.pk) == str(value):
             return value
 
@@ -140,11 +149,13 @@ class CandidatoWriteSerializer(serializers.ModelSerializer):
         return value
 
     def validate_nome(self, value):
+        """Normaliza nome opcional do candidato quando enviado."""
         if value in [None, '']:
             return value
         return normalize_required_text(value, 'nome')
 
     def validate(self, attrs):
+        """Normaliza contato e curriculo do candidato."""
         if 'email' in attrs:
             attrs['email'] = normalize_optional_text(attrs.get('email'))
         if 'telefone' in attrs:
@@ -183,6 +194,7 @@ class CandidatoRegistrationSerializer(serializers.Serializer):
     )
 
     def validate_username(self, value):
+        """Normaliza username e bloqueia duplicidade no registro."""
         value = normalize_required_text(value, 'username')
         UserModel = get_user_model()
 
@@ -192,12 +204,14 @@ class CandidatoRegistrationSerializer(serializers.Serializer):
         return value
 
     def validate_cpf_candidato(self, value):
+        """Bloqueia registro publico com CPF ja cadastrado."""
         if Candidato.objects.filter(pk=value).exists():
             raise serializers.ValidationError('Ja existe candidato com este CPF.')
 
         return value
 
     def validate(self, attrs):
+        """Valida e-mail, senha e campos opcionais do registro."""
         UserModel = get_user_model()
         email = normalize_required_text(attrs.get('email'), 'email')
 
@@ -226,6 +240,7 @@ class CandidatoRegistrationSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
+        """Cria usuario Django e candidato em transacao unica."""
         UserModel = get_user_model()
         username = validated_data.pop('username')
         password = validated_data.pop('password')
@@ -261,21 +276,25 @@ class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
         depth = 1
 
     def get_cpf_candidato(self, obj) -> str | None:
+        """Retorna CPF real ou mascarado em leitura com vagas."""
         if can_view_candidato_sensitive(self, obj):
             return obj.cpf_candidato
         return mask_cpf(obj.cpf_candidato)
 
     def get_email(self, obj) -> str | None:
+        """Retorna e-mail real ou mascarado em leitura com vagas."""
         if can_view_candidato_sensitive(self, obj):
             return obj.email
         return mask_email(obj.email)
 
     def get_telefone(self, obj) -> str | None:
+        """Retorna telefone real ou mascarado em leitura com vagas."""
         if can_view_candidato_sensitive(self, obj):
             return obj.telefone
         return mask_phone(obj.telefone)
 
     def get_curriculo(self, obj) -> str | None:
+        """Retorna curriculo apenas para contexto autorizado com vagas."""
         if can_view_candidato_sensitive(self, obj):
             return obj.curriculo
         return None
@@ -317,11 +336,13 @@ class VagaWriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate_titulo(self, value):
+        """Normaliza titulo opcional da vaga quando enviado."""
         if value in [None, '']:
             return value
         return normalize_required_text(value, 'titulo')
 
     def validate(self, attrs):
+        """Valida data de publicacao e normaliza descricao da vaga."""
         data_publicacao = attrs.get('data_publicacao')
 
         if data_publicacao and data_publicacao > timezone.localdate():
@@ -364,6 +385,7 @@ class CandidatoVagaReadSerializer(serializers.ModelSerializer):
         depth = 1
 
     def get_cpf_candidato(self, obj) -> str | None:
+        """Retorna CPF real ou mascarado do vinculo candidato-vaga."""
         candidato = obj.cpf_candidato
         if can_view_candidato_sensitive(self, candidato):
             return candidato.pk
@@ -388,6 +410,7 @@ class CandidatoVagaWriteSerializer(serializers.ModelSerializer):
         read_only_fields = []
 
     def validate(self, attrs):
+        """Valida unicidade do vinculo candidato-vaga."""
         if not self.partial and (attrs.get('cpf_candidato') is None or attrs.get('id_vaga') is None):
             raise serializers.ValidationError(
                 'Candidato e vaga sao obrigatorios para criar o vinculo.'
@@ -419,6 +442,7 @@ class CandidaturaCreateSerializer(serializers.Serializer):
     id_vaga = serializers.PrimaryKeyRelatedField(queryset=Vaga.objects.all())
 
     def validate(self, attrs):
+        """Impede candidatura duplicada para a mesma vaga."""
         candidato = self.context['candidato']
         vaga = attrs['id_vaga']
 
@@ -430,6 +454,7 @@ class CandidaturaCreateSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
+        """Cria candidatura com status inicial candidato."""
         return CandidatoVaga.objects.create(
             cpf_candidato=self.context['candidato'],
             id_vaga=validated_data['id_vaga'],

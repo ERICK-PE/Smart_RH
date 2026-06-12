@@ -16,8 +16,10 @@ from apps.funcionario.models import Funcionario
 
 
 def debug_only(view_func):
+    """Restringe rota de teste ao ambiente DEBUG."""
     @wraps(view_func)
     def wrapped(request, *args, **kwargs):
+        """Executa view decorada apenas quando DEBUG esta ativo."""
         if not settings.DEBUG:
             raise Http404()
         return view_func(request, *args, **kwargs)
@@ -26,6 +28,7 @@ def debug_only(view_func):
 
 
 def parse_json_body(request):
+    """Converte corpo JSON da requisicao ou sinaliza erro."""
     if not request.body:
         return {}
 
@@ -36,6 +39,7 @@ def parse_json_body(request):
 
 
 def funcionario_payload(funcionario):
+    """Monta payload JSON simples de funcionario para testes."""
     return {
         'id_funcionario': funcionario.id_funcionario,
         'nome': funcionario.nome,
@@ -49,6 +53,7 @@ def funcionario_payload(funcionario):
 
 
 def analise_payload(analise):
+    """Monta payload JSON simples de analise comportamental."""
     funcionario = analise.fk_id_funcionario
     return {
         'id_analise': analise.id_analise,
@@ -60,6 +65,7 @@ def analise_payload(analise):
 
 
 def avaliacao_payload(avaliacao):
+    """Monta payload JSON simples de avaliacao de desempenho."""
     funcionario = avaliacao.fk_id_funcionario
     avaliador = avaliacao.fk_id_avaliador
     return {
@@ -79,12 +85,14 @@ def avaliacao_payload(avaliacao):
 @ensure_csrf_cookie
 @require_http_methods(['GET'])
 def avaliacao_test_page(request):
+    """Renderiza tela de teste de avaliacoes."""
     return render(request, 'avaliacao/avaliacao_teste.html')
 
 
 @debug_only
 @require_http_methods(['GET'])
 def avaliacao_test_options(request):
+    """Retorna opcoes auxiliares para formularios de avaliacao."""
     funcionarios = (
         Funcionario.objects
         .select_related('fk_id_setor', 'fk_id_cargo')
@@ -99,6 +107,7 @@ def avaliacao_test_options(request):
 @debug_only
 @require_http_methods(['GET'])
 def funcionario_test_collection(request):
+    """Lista funcionarios para tela local de avaliacao."""
     funcionarios = (
         Funcionario.objects
         .select_related('fk_id_setor', 'fk_id_cargo')
@@ -111,6 +120,7 @@ def funcionario_test_collection(request):
 @debug_only
 @require_http_methods(['GET', 'POST'])
 def analise_test_collection(request):
+    """Lista ou cria analises pela rota local de teste."""
     if request.method == 'GET':
         analises = (
             AnaliseComportamental.objects
@@ -136,6 +146,7 @@ def analise_test_collection(request):
 @debug_only
 @require_http_methods(['PUT', 'PATCH', 'DELETE'])
 def analise_test_detail(request, pk):
+    """Atualiza ou remove analise pela rota local de teste."""
     analise = get_object_or_404(AnaliseComportamental, pk=pk)
 
     if request.method == 'DELETE':
@@ -162,6 +173,7 @@ def analise_test_detail(request, pk):
 @debug_only
 @require_http_methods(['GET', 'POST'])
 def avaliacao_test_collection(request):
+    """Lista ou cria avaliacoes pela rota local de teste."""
     if request.method == 'GET':
         avaliacoes = (
             AvaliacaoDesempenho.objects
@@ -189,6 +201,7 @@ def avaliacao_test_collection(request):
 @debug_only
 @require_http_methods(['PUT', 'PATCH', 'DELETE'])
 def avaliacao_test_detail(request, pk):
+    """Atualiza ou remove avaliacao pela rota local de teste."""
     avaliacao = get_object_or_404(AvaliacaoDesempenho, pk=pk)
 
     if request.method == 'DELETE':

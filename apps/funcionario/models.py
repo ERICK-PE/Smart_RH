@@ -33,6 +33,7 @@ class Funcionario(models.Model):
                                     db_column='fk_id_cargo')
 
     def __str__(self):
+        """Retorna nome do funcionario sem expor dados sensiveis."""
         return self.nome
 
     class Meta:
@@ -55,6 +56,7 @@ class PlanoCarreira(models.Model):
     requisitos = models.TextField(blank=True, null=True)
 
     def __str__(self):
+        """Retorna identificador legivel do plano de carreira."""
         return f'Plano de carreira {self.id_plano}'
 
     class Meta:
@@ -71,6 +73,7 @@ class Contrato(models.Model):
     data_fim = models.DateField(blank=True, null=True)
 
     def __str__(self):
+        """Retorna identificador legivel do contrato sem salario."""
         return f'Contrato {self.id_contrato}'
 
     class Meta:

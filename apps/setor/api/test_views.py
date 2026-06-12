@@ -12,8 +12,10 @@ from apps.setor.models import Cargo, Setor
 
 
 def debug_only(view_func):
+    """Restringe rota de teste ao ambiente DEBUG."""
     @wraps(view_func)
     def wrapped(request, *args, **kwargs):
+        """Executa view decorada apenas quando DEBUG esta ativo."""
         if not settings.DEBUG:
             raise Http404()
         return view_func(request, *args, **kwargs)
@@ -22,6 +24,7 @@ def debug_only(view_func):
 
 
 def parse_json_body(request):
+    """Converte corpo JSON da requisicao ou sinaliza erro."""
     if not request.body:
         return {}
 
@@ -32,6 +35,7 @@ def parse_json_body(request):
 
 
 def setor_payload(setor):
+    """Monta payload JSON simples de setor para tela de teste."""
     return {
         'id_setor': setor.id_setor,
         'nome': setor.nome,
@@ -40,6 +44,7 @@ def setor_payload(setor):
 
 
 def cargo_payload(cargo):
+    """Monta payload JSON simples de cargo para tela de teste."""
     return {
         'id_cargo': cargo.id_cargo,
         'nome': cargo.nome,
@@ -51,12 +56,14 @@ def cargo_payload(cargo):
 @ensure_csrf_cookie
 @require_http_methods(['GET'])
 def setor_test_page(request):
+    """Renderiza tela de teste de setor e cargo."""
     return render(request, 'setor/setor_teste.html')
 
 
 @debug_only
 @require_http_methods(['GET', 'POST'])
 def setor_test_collection(request):
+    """Lista ou cria setores pela rota local de teste."""
     if request.method == 'GET':
         setores = Setor.objects.all().order_by('id_setor')
         return JsonResponse({'results': [setor_payload(setor) for setor in setores]})
@@ -76,6 +83,7 @@ def setor_test_collection(request):
 @debug_only
 @require_http_methods(['PUT', 'PATCH', 'DELETE'])
 def setor_test_detail(request, pk):
+    """Atualiza ou remove setor pela rota local de teste."""
     setor = get_object_or_404(Setor, pk=pk)
 
     if request.method == 'DELETE':
@@ -97,6 +105,7 @@ def setor_test_detail(request, pk):
 @debug_only
 @require_http_methods(['GET', 'POST'])
 def cargo_test_collection(request):
+    """Lista ou cria cargos pela rota local de teste."""
     if request.method == 'GET':
         cargos = Cargo.objects.all().order_by('id_cargo')
         return JsonResponse({'results': [cargo_payload(cargo) for cargo in cargos]})
@@ -116,6 +125,7 @@ def cargo_test_collection(request):
 @debug_only
 @require_http_methods(['PUT', 'PATCH', 'DELETE'])
 def cargo_test_detail(request, pk):
+    """Atualiza ou remove cargo pela rota local de teste."""
     cargo = get_object_or_404(Cargo, pk=pk)
 
     if request.method == 'DELETE':

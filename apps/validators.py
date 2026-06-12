@@ -34,6 +34,7 @@ nome_validators = [
 
 
 def normalize_required_text(value, field_name):
+    """Normaliza texto obrigatorio e rejeita valor vazio."""
     if value is None:
         raise serializers.ValidationError(f'{field_name} e obrigatorio.')
 
@@ -45,6 +46,7 @@ def normalize_required_text(value, field_name):
 
 
 def normalize_optional_text(value):
+    """Normaliza texto opcional e converte vazio em None."""
     if value is None:
         return value
 

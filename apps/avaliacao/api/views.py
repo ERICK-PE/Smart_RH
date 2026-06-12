@@ -30,6 +30,7 @@ class AnaliseComportamentalViewSet(
     search_fields = ['fk_id_funcionario__nome']
 
     def get_queryset(self):
+        """Restringe analises ao proprio funcionario fora do RH/admin."""
         queryset = super().get_queryset()
         if self.user_has_global_access():
             return queryset
@@ -42,6 +43,7 @@ class AnaliseComportamentalViewSet(
 
     @action(detail=False, methods=['get'], url_path='rh/indicadores')
     def rh_indicadores(self, request):
+        """Retorna total de analises comportamentais para RH/admin."""
         self.assert_rh_admin_access()
         return Response({
             'total_analises_comportamentais': AnaliseComportamental.objects.count(),
@@ -49,6 +51,7 @@ class AnaliseComportamentalViewSet(
 
     @action(detail=True, methods=['get'], url_path='funcionario')
     def funcionario(self, request, pk=None):
+        """Retorna funcionario relacionado a analise comportamental."""
         analise = self.get_object()
         serializer = FuncionarioReadSerializer(
             analise.fk_id_funcionario,
@@ -72,6 +75,7 @@ class AvaliacaoDesempenhoViewSet(
     search_fields = ['categoria', 'fk_id_funcionario__nome', 'fk_id_avaliador__nome']
 
     def get_queryset(self):
+        """Restringe avaliacoes ao proprio funcionario fora do RH/admin."""
         queryset = super().get_queryset()
         if self.user_has_global_access():
             return queryset
@@ -84,6 +88,7 @@ class AvaliacaoDesempenhoViewSet(
 
     @action(detail=False, methods=['get'], url_path='rh/indicadores')
     def rh_indicadores(self, request):
+        """Retorna totais e media de avaliacoes para RH/admin."""
         self.assert_rh_admin_access()
         avaliacoes = self.filter_queryset(self.get_queryset())
         media_nota = avaliacoes.aggregate(media_nota=Avg('nota'))['media_nota']
@@ -96,6 +101,7 @@ class AvaliacaoDesempenhoViewSet(
 
     @action(detail=True, methods=['get'], url_path='funcionario')
     def funcionario(self, request, pk=None):
+        """Retorna funcionario avaliado na avaliacao de desempenho."""
         avaliacao = self.get_object()
         serializer = FuncionarioReadSerializer(
             avaliacao.fk_id_funcionario,
@@ -105,6 +111,7 @@ class AvaliacaoDesempenhoViewSet(
 
     @action(detail=True, methods=['get'], url_path='avaliador')
     def avaliador(self, request, pk=None):
+        """Retorna funcionario avaliador da avaliacao de desempenho."""
         avaliacao = self.get_object()
         serializer = FuncionarioReadSerializer(
             avaliacao.fk_id_avaliador,

@@ -13,8 +13,10 @@ from apps.setor.models import Cargo, Setor
 
 
 def debug_only(view_func):
+    """Restringe rota de teste ao ambiente DEBUG."""
     @wraps(view_func)
     def wrapped(request, *args, **kwargs):
+        """Executa view decorada apenas quando DEBUG esta ativo."""
         if not settings.DEBUG:
             raise Http404()
         return view_func(request, *args, **kwargs)
@@ -23,6 +25,7 @@ def debug_only(view_func):
 
 
 def parse_json_body(request):
+    """Converte corpo JSON da requisicao ou sinaliza erro."""
     if not request.body:
         return {}
 
@@ -33,6 +36,7 @@ def parse_json_body(request):
 
 
 def funcionario_payload(funcionario):
+    """Monta payload JSON simples de funcionario para tela de teste."""
     return {
         'id_funcionario': funcionario.id_funcionario,
         'nome': funcionario.nome,
@@ -52,12 +56,14 @@ def funcionario_payload(funcionario):
 @ensure_csrf_cookie
 @require_http_methods(['GET'])
 def funcionario_test_page(request):
+    """Renderiza tela de teste de funcionarios."""
     return render(request, 'funcionario/funcionario_teste.html')
 
 
 @debug_only
 @require_http_methods(['GET'])
 def funcionario_test_options(request):
+    """Retorna opcoes auxiliares para formulario de funcionario."""
     return JsonResponse({
         'setores': [
             {'id_setor': setor.id_setor, 'nome': setor.nome}
@@ -77,6 +83,7 @@ def funcionario_test_options(request):
 @debug_only
 @require_http_methods(['GET', 'POST'])
 def funcionario_test_collection(request):
+    """Lista ou cria funcionarios pela rota local de teste."""
     if request.method == 'GET':
         funcionarios = (
             Funcionario.objects
@@ -104,6 +111,7 @@ def funcionario_test_collection(request):
 @debug_only
 @require_http_methods(['PUT', 'PATCH', 'DELETE'])
 def funcionario_test_detail(request, pk):
+    """Atualiza ou remove funcionario pela rota local de teste."""
     funcionario = get_object_or_404(Funcionario, pk=pk)
 
     if request.method == 'DELETE':

@@ -39,6 +39,7 @@ class PlanoCarreiraFilter(filters.FilterSet):
         fields = ['id_plano', 'cargo', 'cargo_nome', 'texto']
 
     def filter_texto(self, queryset, name, value):
+        """Busca texto em descricao ou requisitos do plano."""
         return queryset.filter(Q(descricao__icontains=value) | Q(requisitos__icontains=value))
 
 

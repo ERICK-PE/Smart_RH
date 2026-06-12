@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from importlib.util import find_spec
 from pathlib import Path
 
@@ -19,6 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 def load_env_file(env_path):
+    """Carrega variaveis de ambiente locais sem sobrescrever ambiente real."""
     if not env_path.exists():
         return
 
@@ -32,10 +34,27 @@ def load_env_file(env_path):
 
 
 def get_env(name):
+    """Retorna variavel obrigatoria ou falha com erro explicito."""
     value = os.environ.get(name)
     if value is None:
         raise RuntimeError(f'Variavel de ambiente obrigatoria ausente: {name}')
     return value
+
+
+def get_env_bool(name, default=False):
+    """Converte variavel de ambiente booleana com fallback seguro."""
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def get_env_list(name, default=None):
+    """Converte lista separada por virgula em valores limpos."""
+    value = os.environ.get(name)
+    if value is None:
+        return list(default or [])
+    return [item.strip() for item in value.split(',') if item.strip()]
 
 
 load_env_file(BASE_DIR / '.env')
@@ -62,6 +81,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'rest_framework',
     'django_filters',
     #meus apps
@@ -75,6 +95,7 @@ if find_spec('drf_spectacular'):
     INSTALLED_APPS.append('drf_spectacular')
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -155,8 +176,18 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+CORS_ALLOWED_ORIGINS = get_env_list('CORS_ALLOWED_ORIGINS', [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+])
+CORS_ALLOW_CREDENTIALS = get_env_bool('CORS_ALLOW_CREDENTIALS', True)
+CORS_URLS_REGEX = r'^/api/.*$'
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_FILTER_BACKENDS': [
@@ -165,6 +196,16 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'apps.pagination.StandardResultsSetPagination',
     'PAGE_SIZE': 20,
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(
+        minutes=int(os.environ.get('JWT_ACCESS_TOKEN_MINUTES', '30'))
+    ),
+    'REFRESH_TOKEN_LIFETIME': timedelta(
+        days=int(os.environ.get('JWT_REFRESH_TOKEN_DAYS', '1'))
+    ),
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 if find_spec('drf_spectacular'):

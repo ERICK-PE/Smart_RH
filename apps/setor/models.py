@@ -7,6 +7,7 @@ class Setor(models.Model):
     descricao = models.TextField(blank=True, null=True)
 
     def __str__(self):
+        """Retorna nome do setor para admin e logs."""
         return self.nome
 
     class Meta:
@@ -20,6 +21,7 @@ class Cargo(models.Model):
     descricao = models.TextField(blank=True, null=True)
 
     def __str__(self):
+        """Retorna nome do cargo para admin e logs."""
         return self.nome
 
     class Meta:

@@ -18,8 +18,10 @@ from apps.setor.models import Setor
 
 
 def debug_only(view_func):
+    """Restringe rota de teste ao ambiente DEBUG."""
     @wraps(view_func)
     def wrapped(request, *args, **kwargs):
+        """Executa view decorada apenas quando DEBUG esta ativo."""
         if not settings.DEBUG:
             raise Http404()
         return view_func(request, *args, **kwargs)
@@ -28,6 +30,7 @@ def debug_only(view_func):
 
 
 def parse_json_body(request):
+    """Converte corpo JSON da requisicao ou sinaliza erro."""
     if not request.body:
         return {}
 
@@ -38,6 +41,7 @@ def parse_json_body(request):
 
 
 def candidato_payload(candidato):
+    """Monta payload JSON simples de candidato para tela de teste."""
     return {
         'cpf_candidato': candidato.cpf_candidato,
         'user_id': candidato.user_id,
@@ -49,6 +53,7 @@ def candidato_payload(candidato):
 
 
 def vaga_payload(vaga):
+    """Monta payload JSON simples de vaga para tela de teste."""
     return {
         'id_vaga': vaga.id_vaga,
         'titulo': vaga.titulo,
@@ -60,6 +65,7 @@ def vaga_payload(vaga):
 
 
 def candidatura_payload(candidatura):
+    """Monta payload JSON simples de candidatura para tela de teste."""
     candidato = candidatura.cpf_candidato
     vaga = candidatura.id_vaga
     return {
@@ -75,12 +81,14 @@ def candidatura_payload(candidatura):
 @ensure_csrf_cookie
 @require_http_methods(['GET'])
 def candidato_vaga_test_page(request):
+    """Renderiza tela de teste de candidatos e vagas."""
     return render(request, 'candidato_vaga/candidato_vaga_teste.html')
 
 
 @debug_only
 @require_http_methods(['GET'])
 def candidato_vaga_test_options(request):
+    """Retorna opcoes auxiliares para formularios de candidatura."""
     return JsonResponse({
         'setores': [
             {'id_setor': setor.id_setor, 'nome': setor.nome}
@@ -100,6 +108,7 @@ def candidato_vaga_test_options(request):
 @debug_only
 @require_http_methods(['GET', 'POST'])
 def candidato_test_collection(request):
+    """Lista ou cria candidatos pela rota local de teste."""
     if request.method == 'GET':
         candidatos = Candidato.objects.all().order_by('nome', 'cpf_candidato')
         return JsonResponse({'results': [candidato_payload(candidato) for candidato in candidatos]})
@@ -119,6 +128,7 @@ def candidato_test_collection(request):
 @debug_only
 @require_http_methods(['PUT', 'PATCH', 'DELETE'])
 def candidato_test_detail(request, cpf_candidato):
+    """Atualiza ou remove candidato pela rota local de teste."""
     candidato = get_object_or_404(Candidato, pk=cpf_candidato)
 
     if request.method == 'DELETE':
@@ -140,6 +150,7 @@ def candidato_test_detail(request, cpf_candidato):
 @debug_only
 @require_http_methods(['PUT', 'PATCH', 'DELETE'])
 def vaga_test_detail(request, pk):
+    """Atualiza ou remove vaga pela rota local de teste."""
     vaga = get_object_or_404(Vaga, pk=pk)
 
     if request.method == 'DELETE':
@@ -162,6 +173,7 @@ def vaga_test_detail(request, pk):
 @debug_only
 @require_http_methods(['GET', 'POST'])
 def vaga_test_collection(request):
+    """Lista ou cria vagas pela rota local de teste."""
     if request.method == 'GET':
         vagas = Vaga.objects.select_related('fk_id_setor').all().order_by('id_vaga')
         return JsonResponse({'results': [vaga_payload(vaga) for vaga in vagas]})
@@ -182,6 +194,7 @@ def vaga_test_collection(request):
 @debug_only
 @require_http_methods(['GET', 'POST'])
 def candidatura_test_collection(request):
+    """Lista ou cria candidaturas pela rota local de teste."""
     if request.method == 'GET':
         candidaturas = (
             CandidatoVaga.objects
@@ -211,6 +224,7 @@ def candidatura_test_collection(request):
 @debug_only
 @require_http_methods(['PUT', 'PATCH', 'DELETE'])
 def candidatura_test_detail(request, cpf_candidato, id_vaga):
+    """Atualiza ou remove candidatura pela rota local de teste."""
     candidatura = get_object_or_404(
         CandidatoVaga,
         cpf_candidato_id=cpf_candidato,

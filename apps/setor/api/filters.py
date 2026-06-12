@@ -14,9 +14,11 @@ class SetorFilter(filters.FilterSet):
         fields = ['id_setor', 'nome', 'descricao', 'possui_funcionarios', 'possui_vagas']
 
     def filter_possui_funcionarios(self, queryset, name, value):
+        """Filtra setores com ou sem funcionarios vinculados."""
         return queryset.filter(funcionario__isnull=not value).distinct()
 
     def filter_possui_vagas(self, queryset, name, value):
+        """Filtra setores com ou sem vagas vinculadas."""
         return queryset.filter(vaga__isnull=not value).distinct()
 
 
@@ -31,7 +33,9 @@ class CargoFilter(filters.FilterSet):
         fields = ['id_cargo', 'nome', 'descricao', 'possui_funcionarios', 'possui_planos_carreira']
 
     def filter_possui_funcionarios(self, queryset, name, value):
+        """Filtra cargos com ou sem funcionarios vinculados."""
         return queryset.filter(funcionario__isnull=not value).distinct()
 
     def filter_possui_planos_carreira(self, queryset, name, value):
+        """Filtra cargos com ou sem planos de carreira vinculados."""
         return queryset.filter(planocarreira__isnull=not value).distinct()

@@ -8,6 +8,7 @@ from apps.validators import normalize_optional_text
 
 
 def can_view_avaliacao_sensitive(serializer, avaliacao):
+    """Indica se contexto pode ver comentario ou resultado sensivel."""
     if can_view_funcionario_sensitive(serializer, avaliacao.fk_id_funcionario):
         return True
 
@@ -34,6 +35,7 @@ class AnaliseComportamentalReadSerializer(serializers.ModelSerializer):
         depth = 1
 
     def get_resultado(self, obj) -> str | None:
+        """Retorna resultado apenas para contexto autorizado."""
         if can_view_funcionario_sensitive(self, obj.fk_id_funcionario):
             return obj.resultado
         return None
@@ -53,6 +55,7 @@ class AnaliseComportamentalWriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        """Valida data da analise e normaliza resultado."""
         data_analise = attrs.get('data_analise')
 
         if data_analise and data_analise > timezone.localdate():
@@ -84,6 +87,7 @@ class AvaliacaoDesempenhoReadSerializer(serializers.ModelSerializer):
         depth = 1
 
     def get_comentario(self, obj) -> str | None:
+        """Retorna comentario apenas para contexto autorizado."""
         if can_view_avaliacao_sensitive(self, obj):
             return obj.comentario
         return None
@@ -117,6 +121,7 @@ class AvaliacaoDesempenhoWriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        """Valida avaliacao, nota, data e bloqueia se autoavaliacao."""
         funcionario = attrs.get('fk_id_funcionario')
         avaliador = attrs.get('fk_id_avaliador')
         data_avaliacao = attrs.get('data_avaliacao')

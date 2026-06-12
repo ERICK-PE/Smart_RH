@@ -26,6 +26,7 @@ class SetorViewSet(RHAdminModelViewSetMixin, ResumoActionMixin, viewsets.ModelVi
 
     @action(detail=False, methods=['get'], url_path='rh/indicadores')
     def rh_indicadores(self, request):
+        """Retorna indicadores administrativos de setores e cargos."""
         self.assert_rh_admin_access()
         return Response({
             'total_setores': Setor.objects.count(),
@@ -34,6 +35,7 @@ class SetorViewSet(RHAdminModelViewSetMixin, ResumoActionMixin, viewsets.ModelVi
 
     @action(detail=True, methods=['get'], url_path='funcionarios')
     def funcionarios(self, request, pk=None):
+        """Lista funcionarios vinculados ao setor informado."""
         setor = self.get_object()
         return self.paginated_serializer_response(
             setor.funcionario_set.all().order_by('id_funcionario'),
@@ -42,6 +44,7 @@ class SetorViewSet(RHAdminModelViewSetMixin, ResumoActionMixin, viewsets.ModelVi
 
     @action(detail=True, methods=['get'], url_path='vagas')
     def vagas(self, request, pk=None):
+        """Lista vagas vinculadas ao setor informado."""
         setor = self.get_object()
         return self.paginated_serializer_response(
             setor.vaga_set.all().order_by('id_vaga'),
@@ -60,6 +63,7 @@ class CargoViewSet(RHAdminModelViewSetMixin, ResumoActionMixin, viewsets.ModelVi
 
     @action(detail=True, methods=['get'], url_path='funcionarios')
     def funcionarios(self, request, pk=None):
+        """Lista funcionarios vinculados ao cargo informado."""
         cargo = self.get_object()
         return self.paginated_serializer_response(
             cargo.funcionario_set.all().order_by('id_funcionario'),
@@ -68,6 +72,7 @@ class CargoViewSet(RHAdminModelViewSetMixin, ResumoActionMixin, viewsets.ModelVi
 
     @action(detail=True, methods=['get'], url_path='planos-carreira')
     def planos_carreira(self, request, pk=None):
+        """Lista planos de carreira vinculados ao cargo informado."""
         cargo = self.get_object()
         return self.paginated_serializer_response(
             cargo.planocarreira_set.all().order_by('id_plano'),

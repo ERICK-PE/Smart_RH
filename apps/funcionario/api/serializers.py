@@ -14,10 +14,12 @@ from apps.validators import (
 
 
 def mask_cpf(value):
+    """Mascara CPF quando contexto nao pode ver dado sensivel."""
     return '***.***.***-**' if value else value
 
 
 def mask_email(value):
+    """Mascara parte local do e-mail quando leitura nao e privilegiada."""
     if not value or '@' not in value:
         return value
 
@@ -27,10 +29,12 @@ def mask_email(value):
 
 
 def mask_phone(value):
+    """Mascara telefone quando contexto nao pode ver dado sensivel."""
     return '***********' if value else value
 
 
 def can_view_funcionario_sensitive(serializer, funcionario):
+    """Indica se contexto pode ver dados pessoais do funcionario."""
     request = serializer.context.get('request')
     view = serializer.context.get('view')
     user = getattr(request, 'user', None)
@@ -71,16 +75,19 @@ class FuncionarioReadSerializer(serializers.ModelSerializer):
         depth = 1
 
     def get_cpf(self, obj) -> str | None:
+        """Retorna CPF real ou mascarado conforme permissao."""
         if can_view_funcionario_sensitive(self, obj):
             return obj.cpf
         return mask_cpf(obj.cpf)
 
     def get_email(self, obj) -> str | None:
+        """Retorna e-mail real ou mascarado conforme permissao."""
         if can_view_funcionario_sensitive(self, obj):
             return obj.email
         return mask_email(obj.email)
 
     def get_telefone(self, obj) -> str | None:
+        """Retorna telefone real ou mascarado conforme permissao."""
         if can_view_funcionario_sensitive(self, obj):
             return obj.telefone
         return mask_phone(obj.telefone)
@@ -117,9 +124,11 @@ class FuncionarioWriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate_nome(self, value):
+        """Normaliza nome obrigatorio do funcionario."""
         return normalize_required_text(value, 'nome')
 
     def validate_status(self, value):
+        """Valida status permitido para funcionario."""
         value = normalize_required_text(value, 'status').lower()
         valid_statuses = {choice[0] for choice in Funcionario.STATUS_CHOICES}
 
@@ -129,6 +138,7 @@ class FuncionarioWriteSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
+        """Valida data de admissao e normaliza contato."""
         data_admissao = attrs.get('data_admissao')
 
         if data_admissao and data_admissao > timezone.localdate():
@@ -171,16 +181,19 @@ class FuncionarioComRelacionamentosReadSerializer(serializers.ModelSerializer):
         depth = 1
 
     def get_cpf(self, obj) -> str | None:
+        """Retorna CPF real ou mascarado em leitura com relacionamentos."""
         if can_view_funcionario_sensitive(self, obj):
             return obj.cpf
         return mask_cpf(obj.cpf)
 
     def get_email(self, obj) -> str | None:
+        """Retorna e-mail real ou mascarado em leitura com relacionamentos."""
         if can_view_funcionario_sensitive(self, obj):
             return obj.email
         return mask_email(obj.email)
 
     def get_telefone(self, obj) -> str | None:
+        """Retorna telefone real ou mascarado em leitura com relacionamentos."""
         if can_view_funcionario_sensitive(self, obj):
             return obj.telefone
         return mask_phone(obj.telefone)
@@ -213,6 +226,7 @@ class PlanoCarreiraWriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        """Exige conteudo minimo do plano de carreira."""
         descricao = normalize_optional_text(attrs.get('descricao')) if 'descricao' in attrs else None
         requisitos = normalize_optional_text(attrs.get('requisitos')) if 'requisitos' in attrs else None
 
@@ -246,6 +260,7 @@ class ContratoReadSerializer(serializers.ModelSerializer):
         depth = 1
 
     def get_salario(self, obj) -> Decimal | None:
+        """Retorna salario apenas para RH/admin ou proprio funcionario."""
         request = self.context.get('request')
         view = self.context.get('view')
         user = getattr(request, 'user', None)
@@ -287,6 +302,7 @@ class ContratoWriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        """Valida intervalo de vigencia do contrato."""
         data_inicio = attrs.get('data_inicio')
         data_fim = attrs.get('data_fim')
 

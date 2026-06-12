@@ -13,6 +13,7 @@ class CandidatoFilter(filters.FilterSet):
         fields = ['cpf_candidato', 'nome', 'possui_curriculo']
 
     def filter_possui_curriculo(self, queryset, name, value):
+        """Filtra candidatos com ou sem curriculo preenchido."""
         empty_curriculo = Q(curriculo__isnull=True) | Q(curriculo='')
         if value:
             return queryset.exclude(empty_curriculo)
@@ -42,9 +43,11 @@ class VagaFilter(filters.FilterSet):
         ]
 
     def filter_texto(self, queryset, name, value):
+        """Busca texto em titulo ou descricao da vaga."""
         return queryset.filter(Q(titulo__icontains=value) | Q(descricao__icontains=value))
 
     def filter_com_candidaturas(self, queryset, name, value):
+        """Filtra vagas com ou sem candidaturas vinculadas."""
         return queryset.filter(candidatovaga__isnull=not value).distinct()
 
 

@@ -10,6 +10,7 @@ class AnaliseComportamental(models.Model):
     data_analise = models.DateField(blank=True, null=True)
 
     def __str__(self):
+        """Retorna identificador da analise sem expor resultado."""
         return f'Analise comportamental {self.id_analise}'
 
     class Meta:
@@ -32,6 +33,7 @@ class AvaliacaoDesempenho(models.Model):
     data_avaliacao = models.DateField()
 
     def __str__(self):
+        """Retorna id da avaliacao"""
         return f'Avaliacao de desempenho {self.id_avaliacao}'
 
     class Meta:

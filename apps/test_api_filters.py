@@ -19,10 +19,16 @@ class APIFilterConfigurationTests(SimpleTestCase):
         self.assertIn('django_filters.rest_framework.DjangoFilterBackend', filter_backends)
         self.assertIn('rest_framework.filters.SearchFilter', filter_backends)
 
-    def test_rest_framework_usa_session_authentication(self):
+    def test_rest_framework_usa_jwt_e_session_authentication(self):
         authentication_classes = settings.REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES']
 
-        self.assertEqual(authentication_classes, ['rest_framework.authentication.SessionAuthentication'])
+        self.assertEqual(
+            authentication_classes,
+            [
+                'rest_framework_simplejwt.authentication.JWTAuthentication',
+                'rest_framework.authentication.SessionAuthentication',
+            ],
+        )
 
     def test_funcionario_crud_usa_model_viewset(self):
         self.assertTrue(issubclass(FuncionarioViewSet, viewsets.ModelViewSet))

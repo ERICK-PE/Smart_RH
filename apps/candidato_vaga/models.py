@@ -18,6 +18,7 @@ class Candidato(models.Model):
     curriculo = models.TextField(blank=True, null=True)
 
     def __str__(self):
+        """Retorna nome ou identificador do candidato sem contato."""
         return self.nome or f'Candidato {self.cpf_candidato}'
 
     class Meta:
@@ -36,6 +37,7 @@ class Vaga(models.Model):
                                      blank=True, null=True)
 
     def __str__(self):
+        """Retorna titulo ou identificador da vaga."""
         return self.titulo or f'Vaga {self.id_vaga}'
 
     class Meta:
@@ -50,6 +52,7 @@ class CandidatoVaga(models.Model):
     status_processo = models.CharField(max_length=50, blank=True, null=True)
 
     def __str__(self):
+        """Retorna chave do vinculo candidato-vaga."""
         return f'Candidato {self.cpf_candidato_id} - Vaga {self.id_vaga_id}'
 
     class Meta:
