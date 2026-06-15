@@ -132,13 +132,12 @@ Observacao:
 
 - `pytest.ini` limita descoberta para arquivos reais de teste.
 - Arquivos `apps/*/api/test_views.py` sao views locais de teste/debug, nao testes pytest.
+- `sitecustomize.py` cria fallback local `.tmp/` apenas quando Python nao encontra nenhum diretorio temporario utilizavel no ambiente.
 
 ## Seguranca
 
 - Nunca versionar `.env`.
 - Nunca commitar senhas, tokens, chaves JWT, credenciais ou dumps do banco.
-- CORS fica restrito a `/api/` por `CORS_URLS_REGEX`.
-- JWT usa header `Authorization: Bearer <token>`.
 - HTTPS nao e dependencia Python. Em producao, usar proxy/servidor com certificado TLS e revisar `DEBUG`, `ALLOWED_HOSTS`, cookies seguros e origem CORS.
 
 ## Documentacao da API

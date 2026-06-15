@@ -217,6 +217,16 @@
                 <select id="job_sector"></select>
             </label>
 
+            <label>
+                Status
+                <select id="job_status">
+                    <option value="aberta">Aberta</option>
+                    <option value="andamento">Andamento</option>
+                    <option value="fechada">Fechada</option>
+                    <option value="cancelada">Cancelada</option>
+                </select>
+            </label>
+
             <label class="span-3">
                 Descricao
                 <textarea id="job_description"></textarea>
@@ -289,6 +299,7 @@
                         <th>Titulo</th>
                         <th>Descricao</th>
                         <th>Publicacao</th>
+                        <th>Status</th>
                         <th>Setor</th>
                         <th>Acoes</th>
                     </tr>
@@ -308,6 +319,7 @@
                         <th>Candidato</th>
                         <th>Vaga</th>
                         <th>Titulo</th>
+                        <th>Status vaga</th>
                         <th>Status</th>
                         <th>Acoes</th>
                     </tr>
@@ -408,6 +420,7 @@ function jobPayload() {
         titulo: document.querySelector('#job_title').value || null,
         descricao: document.querySelector('#job_description').value || null,
         data_publicacao: document.querySelector('#job_date').value || null,
+        status: document.querySelector('#job_status').value || 'aberta',
         fk_id_setor: document.querySelector('#job_sector').value || null,
     };
 }
@@ -433,6 +446,7 @@ function clearCandidateForm() {
 function clearJobForm() {
     document.querySelector('#job-form').reset();
     document.querySelector('#job_id').value = '';
+    document.querySelector('#job_status').value = 'aberta';
     document.querySelector('#job-submit').textContent = 'Cadastrar vaga';
     setText('#job-message', '');
 }
@@ -470,6 +484,7 @@ function editJob(job) {
     document.querySelector('#job_title').value = job.titulo || '';
     document.querySelector('#job_description').value = job.descricao || '';
     document.querySelector('#job_date').value = job.data_publicacao || '';
+    document.querySelector('#job_status').value = job.status || 'aberta';
     document.querySelector('#job_sector').value = job.fk_id_setor || '';
     document.querySelector('#job-submit').textContent = 'Salvar vaga';
     setText('#job-message', 'Editando vaga ' + job.id_vaga);
@@ -517,7 +532,7 @@ function renderJobs() {
     const body = document.querySelector('#job-body');
     body.innerHTML = '';
     if (!jobs.length) {
-        body.innerHTML = '<tr><td colspan="6">Nenhuma vaga encontrada.</td></tr>';
+        body.innerHTML = '<tr><td colspan="7">Nenhuma vaga encontrada.</td></tr>';
         return;
     }
     jobs.forEach((job) => {
@@ -526,6 +541,7 @@ function renderJobs() {
         appendCell(row, job.titulo);
         appendCell(row, job.descricao);
         appendCell(row, job.data_publicacao);
+        appendCell(row, job.status);
         appendCell(row, job.setor_nome || job.fk_id_setor);
         const actions = document.createElement('td');
         actions.appendChild(makeButton('Editar', 'secondary', () => editJob(job)));
@@ -540,7 +556,7 @@ function renderApplications() {
     const body = document.querySelector('#application-body');
     body.innerHTML = '';
     if (!applications.length) {
-        body.innerHTML = '<tr><td colspan="6">Nenhuma candidatura encontrada.</td></tr>';
+        body.innerHTML = '<tr><td colspan="7">Nenhuma candidatura encontrada.</td></tr>';
         return;
     }
     applications.forEach((application) => {
@@ -549,6 +565,7 @@ function renderApplications() {
         appendCell(row, application.candidato_nome);
         appendCell(row, application.id_vaga);
         appendCell(row, application.vaga_titulo);
+        appendCell(row, application.status_vaga);
         appendCell(row, application.status_processo);
         const actions = document.createElement('td');
         actions.appendChild(makeButton('Editar', 'secondary', () => editApplication(application)));

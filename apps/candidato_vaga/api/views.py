@@ -257,13 +257,20 @@ class VagaViewSet(
     write_serializer_class = VagaWriteSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_class = VagaFilter
-    filterset_fields = ['id_vaga', 'fk_id_setor', 'titulo']
+    filterset_fields = ['id_vaga', 'fk_id_setor', 'titulo', 'status']
     search_fields = ['titulo', 'descricao', 'fk_id_setor__nome']
 
     @action(detail=False, methods=['get'], url_path='rh/indicadores')
     def rh_indicadores(self, request):
         """Retorna indicadores administrativos de vagas e candidaturas."""
         self.assert_rh_admin_access()
+        vagas_queryset = self.filter_queryset(self.get_queryset())
+        vaga_status_counts = (
+            vagas_queryset
+            .values('status')
+            .annotate(total=Count('id_vaga'))
+            .order_by('status')
+        )
         status_counts = (
             CandidatoVaga.objects
             .values('status_processo')
@@ -271,14 +278,32 @@ class VagaViewSet(
             .order_by('status_processo')
         )
         return Response({
-            'total_vagas': Vaga.objects.count(),
+            'total_vagas': vagas_queryset.count(),
             'total_candidatos': Candidato.objects.count(),
             'total_candidaturas': CandidatoVaga.objects.count(),
+            'vagas_por_status': {
+                item['status'] or 'sem_status': item['total']
+                for item in vaga_status_counts
+            },
             'candidaturas_por_status': {
                 item['status_processo'] or 'sem_status': item['total']
                 for item in status_counts
             },
         })
+
+    @action(detail=True, methods=['patch'], url_path='rh/status')
+    def rh_status(self, request, pk=None):
+        """Atualiza status da vaga por RH/admin."""
+        self.assert_rh_admin_access()
+        vaga = self.get_object()
+        serializer = VagaWriteSerializer(
+            vaga,
+            data={'status': request.data.get('status')},
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        vaga = serializer.save()
+        return Response(VagaReadSerializer(vaga, context=self.get_serializer_context()).data)
 
     @action(detail=True, methods=['get'], url_path='candidatos')
     def candidatos(self, request, pk=None):
