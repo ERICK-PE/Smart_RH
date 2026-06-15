@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model, password_validation
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -14,6 +15,44 @@ from apps.validators import (
     safe_text_validator,
     status_processo_validator,
 )
+
+CANDIDATO_AUTH_USERNAME_PREFIX = 'candidato:'
+
+
+def build_case_insensitive_query(field_name, values):
+    query = Q()
+    for value in values:
+        query |= Q(**{f'{field_name}__iexact': value})
+    return query
+
+
+def get_candidato_auth_username(username, max_length=150):
+    username = normalize_required_text(username, 'username')
+    auth_username = f'{CANDIDATO_AUTH_USERNAME_PREFIX}{username}'
+    if len(auth_username) > max_length:
+        raise serializers.ValidationError(
+            f'Username deve ter no maximo {max_length - len(CANDIDATO_AUTH_USERNAME_PREFIX)} caracteres.'
+        )
+    return auth_username
+
+
+def get_candidato_username_variants(username):
+    return [
+        get_candidato_auth_username(username),
+        normalize_required_text(username, 'username'),
+    ]
+
+
+def candidato_username_exists(username):
+    return Candidato.objects.filter(
+        build_case_insensitive_query('user__username', get_candidato_username_variants(username))
+    ).exists()
+
+
+def candidato_email_exists(email):
+    return Candidato.objects.filter(
+        Q(user__email__iexact=email) | Q(email__iexact=email)
+    ).exists()
 
 
 def mask_cpf(value):
@@ -167,7 +206,7 @@ class CandidatoWriteSerializer(serializers.ModelSerializer):
 
 
 class CandidatoRegistrationSerializer(serializers.Serializer):
-    username = serializers.CharField(max_length=150)
+    username = serializers.CharField(max_length=140)
     password = serializers.CharField(write_only=True, trim_whitespace=False)
     cpf_candidato = serializers.CharField(
         max_length=15,
@@ -194,12 +233,11 @@ class CandidatoRegistrationSerializer(serializers.Serializer):
     )
 
     def validate_username(self, value):
-        """Normaliza username e bloqueia duplicidade no registro."""
+        """Normaliza username e bloqueia duplicidade apenas entre candidatos."""
         value = normalize_required_text(value, 'username')
-        UserModel = get_user_model()
 
-        if UserModel.objects.filter(username__iexact=value).exists():
-            raise serializers.ValidationError('Ja existe usuario com este username.')
+        if candidato_username_exists(value):
+            raise serializers.ValidationError('Ja existe candidato com este username.')
 
         return value
 
@@ -215,9 +253,9 @@ class CandidatoRegistrationSerializer(serializers.Serializer):
         UserModel = get_user_model()
         email = normalize_required_text(attrs.get('email'), 'email')
 
-        if UserModel.objects.filter(email__iexact=email).exists():
+        if candidato_email_exists(email):
             raise serializers.ValidationError({
-                'email': 'Ja existe usuario com este e-mail.',
+                'email': 'Ja existe candidato com este e-mail.',
             })
 
         password_user = UserModel(
@@ -245,10 +283,14 @@ class CandidatoRegistrationSerializer(serializers.Serializer):
         username = validated_data.pop('username')
         password = validated_data.pop('password')
         email = validated_data.get('email')
+        auth_username = get_candidato_auth_username(
+            username,
+            max_length=UserModel._meta.get_field(UserModel.USERNAME_FIELD).max_length,
+        )
 
         with transaction.atomic():
             user = UserModel.objects.create_user(
-                username=username,
+                username=auth_username,
                 email=email,
                 password=password,
             )
@@ -308,6 +350,7 @@ class VagaReadSerializer(serializers.ModelSerializer):
             'titulo',
             'descricao',
             'data_publicacao',
+            'status',
             'fk_id_setor',
         ]
         read_only_fields = fields
@@ -329,6 +372,7 @@ class VagaWriteSerializer(serializers.ModelSerializer):
             'titulo',
             'descricao',
             'data_publicacao',
+            'status',
             'fk_id_setor',
         ]
         read_only_fields = [
@@ -340,6 +384,20 @@ class VagaWriteSerializer(serializers.ModelSerializer):
         if value in [None, '']:
             return value
         return normalize_required_text(value, 'titulo')
+
+    def validate_status(self, value):
+        """Normaliza e limita status da vaga aos valores de negocio."""
+        if value in [None, '']:
+            return Vaga.STATUS_ABERTA
+
+        status_vaga = normalize_required_text(value, 'status').lower()
+        status_validos = {choice[0] for choice in Vaga.STATUS_CHOICES}
+        if status_vaga not in status_validos:
+            raise serializers.ValidationError(
+                'Status da vaga deve ser aberta, andamento, fechada ou cancelada.'
+            )
+
+        return status_vaga
 
     def validate(self, attrs):
         """Valida data de publicacao e normaliza descricao da vaga."""
@@ -364,6 +422,7 @@ class VagaComCandidatosReadSerializer(serializers.ModelSerializer):
             'titulo',
             'descricao',
             'data_publicacao',
+            'status',
             'fk_id_setor',
             'candidatovaga_set',
         ]
@@ -373,12 +432,14 @@ class VagaComCandidatosReadSerializer(serializers.ModelSerializer):
 
 class CandidatoVagaReadSerializer(serializers.ModelSerializer):
     cpf_candidato = serializers.SerializerMethodField()
+    status_vaga = serializers.CharField(source='id_vaga.status', read_only=True)
 
     class Meta:
         model = CandidatoVaga
         fields = [
             'cpf_candidato',
             'id_vaga',
+            'status_vaga',
             'status_processo',
         ]
         read_only_fields = fields
@@ -449,6 +510,11 @@ class CandidaturaCreateSerializer(serializers.Serializer):
         if CandidatoVaga.objects.filter(cpf_candidato=candidato, id_vaga=vaga).exists():
             raise serializers.ValidationError({
                 'id_vaga': 'Candidato ja inscrito nesta vaga.',
+            })
+
+        if vaga.status in [Vaga.STATUS_FECHADA, Vaga.STATUS_CANCELADA]:
+            raise serializers.ValidationError({
+                'id_vaga': 'Vaga nao esta aberta para candidatura.',
             })
 
         return attrs

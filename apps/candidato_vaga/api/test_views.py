@@ -59,6 +59,7 @@ def vaga_payload(vaga):
         'titulo': vaga.titulo,
         'descricao': vaga.descricao,
         'data_publicacao': vaga.data_publicacao.isoformat() if vaga.data_publicacao else None,
+        'status': vaga.status,
         'fk_id_setor': vaga.fk_id_setor_id,
         'setor_nome': getattr(vaga.fk_id_setor, 'nome', None),
     }
@@ -73,6 +74,7 @@ def candidatura_payload(candidatura):
         'candidato_nome': getattr(candidato, 'nome', None),
         'id_vaga': candidatura.id_vaga_id,
         'vaga_titulo': getattr(vaga, 'titulo', None),
+        'status_vaga': getattr(vaga, 'status', None),
         'status_processo': candidatura.status_processo,
     }
 
@@ -99,7 +101,7 @@ def candidato_vaga_test_options(request):
             for candidato in Candidato.objects.all().order_by('nome', 'cpf_candidato')
         ],
         'vagas': [
-            {'id_vaga': vaga.id_vaga, 'titulo': vaga.titulo}
+            {'id_vaga': vaga.id_vaga, 'titulo': vaga.titulo, 'status': vaga.status}
             for vaga in Vaga.objects.all().order_by('titulo', 'id_vaga')
         ],
     })

@@ -2,7 +2,9 @@ from importlib.util import find_spec
 
 from django.http import JsonResponse
 from django.urls import include, path
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
+
+from Smart_RH.api_auth import SmartRHTokenObtainPairView
 
 
 def api_root_view(request):
@@ -33,7 +35,7 @@ def api_root_view(request):
 
 
 urlpatterns = [
-    path('auth/token/', TokenObtainPairView.as_view(), name='token-obtain-pair'),
+    path('auth/token/', SmartRHTokenObtainPairView.as_view(), name='token-obtain-pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('setor/', include('apps.setor.api.urls')),
     path('funcionario/', include('apps.funcionario.api.urls')),

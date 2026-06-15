@@ -1,7 +1,12 @@
+from types import SimpleNamespace
+from unittest.mock import patch
+
 from django.conf import settings
 from django.test import SimpleTestCase, override_settings
 from django.urls import resolve
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
+
+from Smart_RH.api_auth import SmartRHTokenObtainPairSerializer, SmartRHTokenObtainPairView
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'])
@@ -40,8 +45,21 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         self.assertEqual(settings.SIMPLE_JWT['AUTH_HEADER_TYPES'], ('Bearer',))
 
     def test_rotas_jwt_resolvem_sob_api_auth(self):
-        self.assertIs(resolve('/api/auth/token/').func.view_class, TokenObtainPairView)
+        self.assertIs(resolve('/api/auth/token/').func.view_class, SmartRHTokenObtainPairView)
         self.assertIs(resolve('/api/auth/token/refresh/').func.view_class, TokenRefreshView)
+
+    def test_token_serializer_resolve_username_publico_do_candidato(self):
+        serializer = SmartRHTokenObtainPairSerializer()
+        user = SimpleNamespace(get_username=lambda: 'candidato:joao')
+        candidato = SimpleNamespace(user_id=10, user=user)
+
+        with patch('Smart_RH.api_auth.Candidato.objects') as candidato_manager:
+            candidato_manager.select_related.return_value.filter.return_value.first.return_value = candidato
+
+            self.assertEqual(
+                serializer.get_profile_auth_username('candidato', 'joao'),
+                'candidato:joao',
+            )
 
     def test_token_endpoint_rejeita_input_incompleto_sem_expor_detalhe_sensivel(self):
         response = self.client.post('/api/auth/token/', {}, content_type='application/json')

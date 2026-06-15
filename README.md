@@ -138,8 +138,6 @@ Observacao:
 
 - Nunca versionar `.env`.
 - Nunca commitar senhas, tokens, chaves JWT, credenciais ou dumps do banco.
-- CORS fica restrito a `/api/` por `CORS_URLS_REGEX`.
-- JWT usa header `Authorization: Bearer <token>`.
 - HTTPS nao e dependencia Python. Em producao, usar proxy/servidor com certificado TLS e revisar `DEBUG`, `ALLOWED_HOSTS`, cookies seguros e origem CORS.
 
 ## Documentacao da API

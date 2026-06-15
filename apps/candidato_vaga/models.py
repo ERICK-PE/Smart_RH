@@ -27,10 +27,22 @@ class Candidato(models.Model):
 
 
 class Vaga(models.Model):
+    STATUS_ABERTA = 'aberta'
+    STATUS_ANDAMENTO = 'andamento'
+    STATUS_FECHADA = 'fechada'
+    STATUS_CANCELADA = 'cancelada'
+    STATUS_CHOICES = [
+        (STATUS_ABERTA, 'Aberta'),
+        (STATUS_ANDAMENTO, 'Andamento'),
+        (STATUS_FECHADA, 'Fechada'),
+        (STATUS_CANCELADA, 'Cancelada'),
+    ]
+
     id_vaga = models.AutoField(primary_key=True)
     titulo = models.CharField(max_length=150, blank=True, null=True)
     descricao = models.TextField(blank=True, null=True)
     data_publicacao = models.DateField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ABERTA)
     fk_id_setor = models.ForeignKey('setor.Setor',
                                      models.DO_NOTHING, 
                                      db_column='fk_id_setor', 
