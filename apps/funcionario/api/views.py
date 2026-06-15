@@ -53,14 +53,15 @@ class FuncionarioViewSet(
     def rh_indicadores(self, request):
         """Retorna indicadores administrativos do painel de funcionarios."""
         self.assert_rh_admin_access()
+        funcionarios_queryset = self.filter_queryset(self.get_queryset())
         status_counts = (
-            Funcionario.objects
+            funcionarios_queryset
             .values('status')
             .annotate(total=Count('id_funcionario'))
             .order_by('status')
         )
         return Response({
-            'total_funcionarios': Funcionario.objects.count(),
+            'total_funcionarios': funcionarios_queryset.count(),
             'total_contratos': Contrato.objects.count(),
             'total_planos_carreira': PlanoCarreira.objects.count(),
             'funcionarios_por_status': {
