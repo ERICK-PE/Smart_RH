@@ -132,6 +132,7 @@ Observacao:
 
 - `pytest.ini` limita descoberta para arquivos reais de teste.
 - Arquivos `apps/*/api/test_views.py` sao views locais de teste/debug, nao testes pytest.
+- `sitecustomize.py` cria fallback local `.tmp/` apenas quando Python nao encontra nenhum diretorio temporario utilizavel no ambiente.
 
 ## Seguranca
 
