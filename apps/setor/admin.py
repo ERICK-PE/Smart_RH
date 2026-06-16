@@ -11,5 +11,6 @@ class SetorAdmin(admin.ModelAdmin):
 
 @admin.register(Cargo)
 class CargoAdmin(admin.ModelAdmin):
-    list_display = ("id_cargo", "nome")
-    search_fields = ("nome",)
+    list_display = ("id_cargo", "nome", "fk_id_setor")
+    list_filter = ("fk_id_setor",)
+    search_fields = ("nome", "fk_id_setor__nome")

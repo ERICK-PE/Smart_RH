@@ -71,6 +71,7 @@ class CargoReadSerializer(serializers.ModelSerializer):
             'id_cargo',
             'nome',
             'descricao',
+            'fk_id_setor',
         ]
         read_only_fields = fields
         depth = 1
@@ -85,6 +86,7 @@ class CargoWriteSerializer(serializers.ModelSerializer):
             'id_cargo',
             'nome',
             'descricao',
+            'fk_id_setor',
         ]
         read_only_fields = [
             'id_cargo',
@@ -104,6 +106,11 @@ class CargoWriteSerializer(serializers.ModelSerializer):
                 'descricao': 'Descricao nao pode ser igual ao nome.',
             })
 
+        if not attrs.get('fk_id_setor') and not self.partial:
+            raise serializers.ValidationError({
+                'fk_id_setor': 'Informe o setor vinculado ao cargo.',
+            })
+
         if 'descricao' in attrs:
             attrs['descricao'] = descricao
 
@@ -117,6 +124,7 @@ class CargoComRelacionamentosReadSerializer(serializers.ModelSerializer):
             'id_cargo',
             'nome',
             'descricao',
+            'fk_id_setor',
             'funcionario_set',
             'planocarreira_set',
         ]

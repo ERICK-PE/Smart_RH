@@ -1,7 +1,13 @@
+import json
+from types import SimpleNamespace
+
 from django.conf import settings
 from django.test import SimpleTestCase, override_settings
 from django.urls import resolve
+from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from Smart_RH.api_urls import auth_me_view
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'])
@@ -50,3 +56,52 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         self.assertIn('username', response.json())
         self.assertIn('password', response.json())
         self.assertNotIn('traceback', response.content.decode().lower())
+
+
+class FakeGroups:
+    def values_list(self, *args, **kwargs):
+        return ['rh']
+
+
+class FakeUser:
+    pk = 1
+    is_authenticated = True
+    is_staff = True
+    is_superuser = False
+    groups = FakeGroups()
+
+    def get_username(self):
+        return 'admin_rh'
+
+    def get_full_name(self):
+        return 'Admin RH'
+
+    def get_all_permissions(self):
+        return {'funcionario.view_rh_panel'}
+
+    def has_perm(self, permission):
+        return permission == 'funcionario.view_rh_panel'
+
+
+class AuthMeEndpointTests(SimpleTestCase):
+    def test_auth_me_exige_autenticacao(self):
+        request = APIRequestFactory().get('/api/auth/me/')
+        response = auth_me_view(request)
+
+        self.assertIn(response.status_code, [401, 403])
+
+    def test_auth_me_retorna_sessao_admin_sem_dados_sensiveis(self):
+        user = FakeUser()
+        request = APIRequestFactory().get('/api/auth/me/')
+        force_authenticate(request, user=user)
+
+        response = auth_me_view(request)
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data['id'], user.pk)
+        self.assertEqual(data['username'], 'admin_rh')
+        self.assertEqual(data['nome'], 'Admin RH')
+        self.assertEqual(data['profile'], 'rh_admin')
+        self.assertTrue(data['is_staff'])
+        self.assertNotIn('password', data)

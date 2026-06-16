@@ -97,23 +97,42 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['post'], url_path='rh/inativar')
     def rh_inativar(self, request, pk=None):
-        """Inativa funcionario preservando historico cadastral."""
+        """Inativa funcionario e bloqueia login do usuario vinculado."""
         self.assert_rh_admin_access()
         funcionario = self.get_object()
         funcionario.status = Funcionario.STATUS_INATIVO
         funcionario.save(update_fields=['status'])
+        self.sync_user_active(funcionario, active=False)
         serializer = self.get_serializer(funcionario)
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='rh/reativar')
     def rh_reativar(self, request, pk=None):
-        """Reativa funcionario previamente inativado."""
+        """Reativa funcionario e libera login do usuario vinculado."""
         self.assert_rh_admin_access()
         funcionario = self.get_object()
         funcionario.status = Funcionario.STATUS_ATIVO
         funcionario.save(update_fields=['status'])
+        self.sync_user_active(funcionario, active=True)
         serializer = self.get_serializer(funcionario)
         return Response(serializer.data)
+
+    def sync_user_active(self, funcionario, active):
+        """Sincroniza acesso do usuario com o status funcional."""
+        user = getattr(funcionario, 'user', None)
+        if user is not None and user.is_active != active:
+            user.is_active = active
+            user.save(update_fields=['is_active'])
+
+    def destroy(self, request, *args, **kwargs):
+        """Preserva historico ao transformar exclusao em inativacao logica."""
+        self.assert_rh_admin_access()
+        funcionario = self.get_object()
+        funcionario.status = Funcionario.STATUS_INATIVO
+        funcionario.save(update_fields=['status'])
+        self.sync_user_active(funcionario, active=False)
+        serializer = self.get_serializer(funcionario)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'], url_path='meus-dados')
     def meus_dados(self, request, pk=None):

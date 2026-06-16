@@ -1,5 +1,4 @@
-pytest==9.0.3
-pytest-django==4.12.0
-drf-spectacular
-django-cors-headers==4.9.0
-djangorestframework-simplejwt==5.5.1
+-r requirements.txt
+
+pytest>=9.1,<10
+pytest-django>=4.12,<5

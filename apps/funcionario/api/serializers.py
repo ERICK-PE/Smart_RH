@@ -1,9 +1,13 @@
+from django.contrib.auth import get_user_model, password_validation
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import MinValueValidator
+from django.db import transaction
 from django.utils import timezone
 from decimal import Decimal
 from rest_framework import serializers
 
 from apps.funcionario.models import Contrato, Funcionario, PlanoCarreira
+from apps.setor.models import Cargo
 from apps.validators import (
     cpf_format_validator,
     nome_validators,
@@ -56,12 +60,19 @@ class FuncionarioReadSerializer(serializers.ModelSerializer):
     cpf = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
     telefone = serializers.SerializerMethodField()
+    username = serializers.SerializerMethodField()
+    is_staff = serializers.SerializerMethodField()
+    is_active = serializers.SerializerMethodField()
+    user_access = serializers.SerializerMethodField()
 
     class Meta:
         model = Funcionario
         fields = [
             'id_funcionario',
-            'user',
+            'user_access',
+            'username',
+            'is_staff',
+            'is_active',
             'nome',
             'cpf',
             'email',
@@ -92,8 +103,45 @@ class FuncionarioReadSerializer(serializers.ModelSerializer):
             return obj.telefone
         return mask_phone(obj.telefone)
 
+    def get_user_access(self, obj) -> dict | None:
+        """Retorna dados seguros do usuario vinculado, nunca senha."""
+        if not can_view_funcionario_sensitive(self, obj):
+            return None
+
+        user = getattr(obj, 'user', None)
+        if user is None:
+            return None
+
+        return {
+            'id': user.pk,
+            'username': user.get_username(),
+            'email': user.email,
+            'is_active': user.is_active,
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+            'last_login': user.last_login,
+        }
+
+    def get_username(self, obj) -> str | None:
+        """Retorna username vinculado quando o contexto pode ver dados sensiveis."""
+        user_access = self.get_user_access(obj)
+        return user_access.get('username') if user_access else None
+
+    def get_is_staff(self, obj) -> bool | None:
+        """Retorna flag administrativa do usuario vinculado."""
+        user_access = self.get_user_access(obj)
+        return user_access.get('is_staff') if user_access else None
+
+    def get_is_active(self, obj) -> bool | None:
+        """Retorna status de acesso do usuario vinculado."""
+        user_access = self.get_user_access(obj)
+        return user_access.get('is_active') if user_access else None
+
 
 class FuncionarioWriteSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    password = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True, trim_whitespace=False)
+    is_staff = serializers.BooleanField(required=False, allow_null=True, write_only=True)
     nome = serializers.CharField(validators=nome_validators)
     cpf = serializers.CharField(validators=[cpf_format_validator])
     email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
@@ -104,12 +152,16 @@ class FuncionarioWriteSerializer(serializers.ModelSerializer):
         validators=[phone_format_validator],
     )
     status = serializers.CharField(required=False)
+    fk_id_setor = serializers.PrimaryKeyRelatedField(read_only=True)
+    fk_id_cargo = serializers.PrimaryKeyRelatedField(queryset=Cargo.objects.select_related('fk_id_setor').all())
 
     class Meta:
         model = Funcionario
         fields = [
             'id_funcionario',
-            'user',
+            'username',
+            'password',
+            'is_staff',
             'nome',
             'cpf',
             'email',
@@ -138,8 +190,9 @@ class FuncionarioWriteSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """Valida data de admissao e normaliza contato."""
+        """Valida dados funcionais e credenciais integradas ao usuario."""
         data_admissao = attrs.get('data_admissao')
+        UserModel = get_user_model()
 
         if data_admissao and data_admissao > timezone.localdate():
             raise serializers.ValidationError({
@@ -151,19 +204,148 @@ class FuncionarioWriteSerializer(serializers.ModelSerializer):
         if 'email' in attrs:
             attrs['email'] = normalize_optional_text(attrs.get('email'))
 
+        username = normalize_optional_text(attrs.pop('username', None)) if 'username' in attrs else None
+        password = attrs.pop('password', None) if 'password' in attrs else None
+        is_staff = attrs.pop('is_staff', None) if 'is_staff' in attrs else None
+        email = attrs.get('email') if 'email' in attrs else getattr(self.instance, 'email', None)
+        linked_user = getattr(self.instance, 'user', None) if self.instance is not None else None
+
+        if self.instance is None:
+            if not username:
+                raise serializers.ValidationError({'username': 'Informe o usuario de acesso.'})
+            if not password:
+                raise serializers.ValidationError({'password': 'Informe a senha inicial do usuario.'})
+        elif linked_user is None and (username or password or is_staff is not None):
+            if not username:
+                raise serializers.ValidationError({'username': 'Informe o usuario de acesso.'})
+            if not password:
+                raise serializers.ValidationError({'password': 'Informe a senha inicial do usuario.'})
+
+        if username:
+            existing_user = UserModel.objects.filter(username__iexact=username)
+            if linked_user is not None:
+                existing_user = existing_user.exclude(pk=linked_user.pk)
+            if existing_user.exists():
+                raise serializers.ValidationError({'username': 'Ja existe usuario com este username.'})
+
+        if email:
+            existing_email = UserModel.objects.filter(email__iexact=email)
+            if linked_user is not None:
+                existing_email = existing_email.exclude(pk=linked_user.pk)
+            if existing_email.exists():
+                raise serializers.ValidationError({'email': 'Ja existe usuario com este e-mail.'})
+
+        if password:
+            password_user = linked_user or UserModel(username=username or '', email=email or '')
+            try:
+                password_validation.validate_password(password, user=password_user)
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError({'password': list(exc.messages)}) from exc
+
+        attrs['_user_payload'] = {
+            'username': username,
+            'password': password,
+            'is_staff': is_staff,
+        }
+
+        cargo = attrs.get('fk_id_cargo') or getattr(self.instance, 'fk_id_cargo', None)
+        if cargo is None:
+            raise serializers.ValidationError({
+                'fk_id_cargo': 'Informe o cargo do funcionario.',
+            })
+
+        setor = getattr(cargo, 'fk_id_setor', None)
+        if setor is None:
+            raise serializers.ValidationError({
+                'fk_id_cargo': 'O cargo selecionado nao possui setor vinculado.',
+            })
+        attrs['fk_id_setor'] = setor
+
         return attrs
+
+    def _sync_user(self, funcionario, user_payload):
+        """Cria ou atualiza usuario Django a partir do funcionario."""
+        UserModel = get_user_model()
+        user = funcionario.user
+        username = user_payload.get('username')
+        password = user_payload.get('password')
+        is_staff = user_payload.get('is_staff')
+
+        if user is None:
+            username = username or self._default_username(funcionario)
+            user = UserModel(username=username, email=funcionario.email or '')
+
+        if username:
+            user.username = username
+
+        user.email = funcionario.email or ''
+        user.first_name = funcionario.nome
+        user.last_name = ''
+        user.is_active = funcionario.status != Funcionario.STATUS_INATIVO
+
+        if is_staff is not None:
+            user.is_staff = bool(is_staff)
+        if password:
+            user.set_password(password)
+        elif user.pk is None:
+            user.set_unusable_password()
+
+        user.save()
+
+        if funcionario.user_id != user.pk:
+            funcionario.user = user
+            funcionario.save(update_fields=['user'])
+
+        return user
+
+    def _default_username(self, funcionario):
+        """Gera username unico para funcionario legado sem usuario."""
+        UserModel = get_user_model()
+        base = (funcionario.email or funcionario.cpf or f'funcionario{funcionario.pk}').split('@')[0]
+        base = ''.join(char for char in base.lower() if char.isalnum() or char in ['.', '_', '-']) or f'funcionario{funcionario.pk}'
+        username = base
+        suffix = 1
+
+        while UserModel.objects.filter(username__iexact=username).exists():
+            suffix += 1
+            username = f'{base}{suffix}'
+
+        return username
+
+    def create(self, validated_data):
+        """Cria funcionario e usuario de acesso na mesma transacao."""
+        user_payload = validated_data.pop('_user_payload', {})
+        with transaction.atomic():
+            funcionario = super().create(validated_data)
+            self._sync_user(funcionario, user_payload)
+            return funcionario
+
+    def update(self, instance, validated_data):
+        """Atualiza funcionario e sincroniza usuario vinculado."""
+        user_payload = validated_data.pop('_user_payload', {})
+        with transaction.atomic():
+            funcionario = super().update(instance, validated_data)
+            self._sync_user(funcionario, user_payload)
+            return funcionario
 
 
 class FuncionarioComRelacionamentosReadSerializer(serializers.ModelSerializer):
     cpf = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
     telefone = serializers.SerializerMethodField()
+    username = serializers.SerializerMethodField()
+    is_staff = serializers.SerializerMethodField()
+    is_active = serializers.SerializerMethodField()
+    user_access = serializers.SerializerMethodField()
 
     class Meta:
         model = Funcionario
         fields = [
             'id_funcionario',
-            'user',
+            'user_access',
+            'username',
+            'is_staff',
+            'is_active',
             'nome',
             'cpf',
             'email',
@@ -197,6 +379,22 @@ class FuncionarioComRelacionamentosReadSerializer(serializers.ModelSerializer):
         if can_view_funcionario_sensitive(self, obj):
             return obj.telefone
         return mask_phone(obj.telefone)
+
+    def get_user_access(self, obj) -> dict | None:
+        """Reaproveita serializacao segura do usuario vinculado."""
+        return FuncionarioReadSerializer(context=self.context).get_user_access(obj)
+
+    def get_username(self, obj) -> str | None:
+        """Reaproveita username seguro do usuario vinculado."""
+        return FuncionarioReadSerializer(context=self.context).get_username(obj)
+
+    def get_is_staff(self, obj) -> bool | None:
+        """Reaproveita flag administrativa do usuario vinculado."""
+        return FuncionarioReadSerializer(context=self.context).get_is_staff(obj)
+
+    def get_is_active(self, obj) -> bool | None:
+        """Reaproveita status de acesso do usuario vinculado."""
+        return FuncionarioReadSerializer(context=self.context).get_is_active(obj)
 
 
 class PlanoCarreiraReadSerializer(serializers.ModelSerializer):
