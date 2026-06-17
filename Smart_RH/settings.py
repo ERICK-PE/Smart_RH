@@ -175,6 +175,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 CORS_ALLOWED_ORIGINS = get_env_list('CORS_ALLOWED_ORIGINS', [
     'http://localhost:3000',
@@ -216,33 +218,4 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Documentacao OpenAPI dos endpoints do Smart-RH.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-}
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'simple': {
-            'format': '[{levelname}] {name}: {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-    },
-    'loggers': {
-        'Smart_RH': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'apps': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-    },
 }

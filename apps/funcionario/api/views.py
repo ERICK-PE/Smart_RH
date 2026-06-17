@@ -53,14 +53,15 @@ class FuncionarioViewSet(
     def rh_indicadores(self, request):
         """Retorna indicadores administrativos do painel de funcionarios."""
         self.assert_rh_admin_access()
+        funcionarios_queryset = self.filter_queryset(self.get_queryset())
         status_counts = (
-            Funcionario.objects
+            funcionarios_queryset
             .values('status')
             .annotate(total=Count('id_funcionario'))
             .order_by('status')
         )
         return Response({
-            'total_funcionarios': Funcionario.objects.count(),
+            'total_funcionarios': funcionarios_queryset.count(),
             'total_contratos': Contrato.objects.count(),
             'total_planos_carreira': PlanoCarreira.objects.count(),
             'funcionarios_por_status': {
@@ -97,42 +98,23 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['post'], url_path='rh/inativar')
     def rh_inativar(self, request, pk=None):
-        """Inativa funcionario e bloqueia login do usuario vinculado."""
+        """Inativa funcionario preservando historico cadastral."""
         self.assert_rh_admin_access()
         funcionario = self.get_object()
         funcionario.status = Funcionario.STATUS_INATIVO
         funcionario.save(update_fields=['status'])
-        self.sync_user_active(funcionario, active=False)
         serializer = self.get_serializer(funcionario)
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='rh/reativar')
     def rh_reativar(self, request, pk=None):
-        """Reativa funcionario e libera login do usuario vinculado."""
+        """Reativa funcionario previamente inativado."""
         self.assert_rh_admin_access()
         funcionario = self.get_object()
         funcionario.status = Funcionario.STATUS_ATIVO
         funcionario.save(update_fields=['status'])
-        self.sync_user_active(funcionario, active=True)
         serializer = self.get_serializer(funcionario)
         return Response(serializer.data)
-
-    def sync_user_active(self, funcionario, active):
-        """Sincroniza acesso do usuario com o status funcional."""
-        user = getattr(funcionario, 'user', None)
-        if user is not None and user.is_active != active:
-            user.is_active = active
-            user.save(update_fields=['is_active'])
-
-    def destroy(self, request, *args, **kwargs):
-        """Preserva historico ao transformar exclusao em inativacao logica."""
-        self.assert_rh_admin_access()
-        funcionario = self.get_object()
-        funcionario.status = Funcionario.STATUS_INATIVO
-        funcionario.save(update_fields=['status'])
-        self.sync_user_active(funcionario, active=False)
-        serializer = self.get_serializer(funcionario)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'], url_path='meus-dados')
     def meus_dados(self, request, pk=None):

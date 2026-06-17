@@ -40,6 +40,23 @@ def parse_json_body(request):
         return None
 
 
+def parse_candidate_body(request):
+    """Aceita JSON ou multipart com arquivo de curriculo."""
+    content_type = request.content_type or ''
+    if content_type.startswith('multipart/form-data'):
+        data = request.POST.copy()
+        if request.FILES.get('curriculo'):
+            data['curriculo'] = request.FILES['curriculo']
+        return data
+
+    return parse_json_body(request)
+
+
+def file_name(value):
+    """Retorna caminho do arquivo de curriculo para JSON de teste."""
+    return getattr(value, 'name', value) or None
+
+
 def candidato_payload(candidato):
     """Monta payload JSON simples de candidato para tela de teste."""
     return {
@@ -48,7 +65,7 @@ def candidato_payload(candidato):
         'nome': candidato.nome,
         'email': candidato.email,
         'telefone': candidato.telefone,
-        'curriculo': candidato.curriculo,
+        'curriculo': file_name(candidato.curriculo),
     }
 
 
@@ -59,6 +76,7 @@ def vaga_payload(vaga):
         'titulo': vaga.titulo,
         'descricao': vaga.descricao,
         'data_publicacao': vaga.data_publicacao.isoformat() if vaga.data_publicacao else None,
+        'status': vaga.status,
         'fk_id_setor': vaga.fk_id_setor_id,
         'setor_nome': getattr(vaga.fk_id_setor, 'nome', None),
     }
@@ -73,6 +91,7 @@ def candidatura_payload(candidatura):
         'candidato_nome': getattr(candidato, 'nome', None),
         'id_vaga': candidatura.id_vaga_id,
         'vaga_titulo': getattr(vaga, 'titulo', None),
+        'status_vaga': getattr(vaga, 'status', None),
         'status_processo': candidatura.status_processo,
     }
 
@@ -99,7 +118,7 @@ def candidato_vaga_test_options(request):
             for candidato in Candidato.objects.all().order_by('nome', 'cpf_candidato')
         ],
         'vagas': [
-            {'id_vaga': vaga.id_vaga, 'titulo': vaga.titulo}
+            {'id_vaga': vaga.id_vaga, 'titulo': vaga.titulo, 'status': vaga.status}
             for vaga in Vaga.objects.all().order_by('titulo', 'id_vaga')
         ],
     })
@@ -113,7 +132,7 @@ def candidato_test_collection(request):
         candidatos = Candidato.objects.all().order_by('nome', 'cpf_candidato')
         return JsonResponse({'results': [candidato_payload(candidato) for candidato in candidatos]})
 
-    data = parse_json_body(request)
+    data = parse_candidate_body(request)
     if data is None:
         return JsonResponse({'detail': 'JSON invalido.'}, status=400)
 
@@ -126,7 +145,7 @@ def candidato_test_collection(request):
 
 
 @debug_only
-@require_http_methods(['PUT', 'PATCH', 'DELETE'])
+@require_http_methods(['POST', 'PUT', 'PATCH', 'DELETE'])
 def candidato_test_detail(request, cpf_candidato):
     """Atualiza ou remove candidato pela rota local de teste."""
     candidato = get_object_or_404(Candidato, pk=cpf_candidato)
@@ -135,11 +154,11 @@ def candidato_test_detail(request, cpf_candidato):
         candidato.delete()
         return JsonResponse({'deleted': True})
 
-    data = parse_json_body(request)
+    data = parse_candidate_body(request)
     if data is None:
         return JsonResponse({'detail': 'JSON invalido.'}, status=400)
 
-    serializer = CandidatoWriteSerializer(candidato, data=data, partial=request.method == 'PATCH')
+    serializer = CandidatoWriteSerializer(candidato, data=data, partial=request.method in ['PATCH', 'POST'])
     if not serializer.is_valid():
         return JsonResponse(serializer.errors, status=400)
 

@@ -25,22 +25,12 @@ class SetorFilter(filters.FilterSet):
 class CargoFilter(filters.FilterSet):
     nome = filters.CharFilter(field_name='nome', lookup_expr='icontains')
     descricao = filters.CharFilter(field_name='descricao', lookup_expr='icontains')
-    setor = filters.NumberFilter(field_name='fk_id_setor')
-    setor_nome = filters.CharFilter(field_name='fk_id_setor__nome', lookup_expr='icontains')
     possui_funcionarios = filters.BooleanFilter(method='filter_possui_funcionarios')
     possui_planos_carreira = filters.BooleanFilter(method='filter_possui_planos_carreira')
 
     class Meta:
         model = Cargo
-        fields = [
-            'id_cargo',
-            'nome',
-            'descricao',
-            'setor',
-            'setor_nome',
-            'possui_funcionarios',
-            'possui_planos_carreira',
-        ]
+        fields = ['id_cargo', 'nome', 'descricao', 'possui_funcionarios', 'possui_planos_carreira']
 
     def filter_possui_funcionarios(self, queryset, name, value):
         """Filtra cargos com ou sem funcionarios vinculados."""
