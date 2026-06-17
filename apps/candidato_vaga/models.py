@@ -1,5 +1,17 @@
+import re
+from pathlib import Path
+
 from django.conf import settings
 from django.db import models
+
+
+def candidato_curriculo_upload_path(instance, filename):
+    """Monta caminho do curriculo usando nome original sanitizado."""
+    file_path = Path(filename)
+    extension = file_path.suffix.lower()
+    stem = file_path.stem.strip() or 'curriculo'
+    safe_stem = re.sub(r'[^A-Za-z0-9_.-]+', '_', stem).strip('._-') or 'curriculo'
+    return f'curriculos/{safe_stem}{extension}'
 
 
 class Candidato(models.Model):
@@ -15,7 +27,12 @@ class Candidato(models.Model):
     nome = models.CharField(max_length=150, blank=True, null=True)
     email = models.CharField(max_length=150, blank=True, null=True)
     telefone = models.CharField(max_length=20, blank=True, null=True)
-    curriculo = models.TextField(blank=True, null=True)
+    curriculo = models.FileField(
+        upload_to=candidato_curriculo_upload_path,
+        max_length=255,
+        blank=True,
+        null=True,
+    )
 
     def __str__(self):
         """Retorna nome ou identificador do candidato sem contato."""

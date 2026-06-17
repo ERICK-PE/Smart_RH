@@ -186,7 +186,7 @@
 
             <label class="span-3">
                 Curriculo
-                <textarea id="candidate_resume"></textarea>
+                <input id="candidate_resume" type="file" accept=".pdf,.doc,.docx">
             </label>
 
             <div class="actions">
@@ -378,6 +378,21 @@ async function requestJson(url, options = {}) {
     return data;
 }
 
+async function requestForm(url, options = {}) {
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            ...(options.headers || {}),
+        },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(JSON.stringify(data));
+    }
+    return data;
+}
+
 function fillSelect(selector, items, valueKey, labelKey, firstLabel = 'Selecione') {
     const select = document.querySelector(selector);
     select.innerHTML = '';
@@ -394,25 +409,23 @@ function fillSelect(selector, items, valueKey, labelKey, firstLabel = 'Selecione
 }
 
 function candidatePayload() {
-    return {
-        username: document.querySelector('#candidate_username').value,
-        password: document.querySelector('#candidate_password').value,
-        cpf_candidato: document.querySelector('#candidate_cpf').value,
-        nome: document.querySelector('#candidate_name').value || null,
-        email: document.querySelector('#candidate_email').value,
-        telefone: document.querySelector('#candidate_phone').value || null,
-        curriculo: document.querySelector('#candidate_resume').value || null,
-    };
+    const formData = candidateEditPayload();
+    formData.append('username', document.querySelector('#candidate_username').value);
+    formData.append('password', document.querySelector('#candidate_password').value);
+    return formData;
 }
 
 function candidateEditPayload() {
-    return {
-        cpf_candidato: document.querySelector('#candidate_cpf').value,
-        nome: document.querySelector('#candidate_name').value || null,
-        email: document.querySelector('#candidate_email').value,
-        telefone: document.querySelector('#candidate_phone').value || null,
-        curriculo: document.querySelector('#candidate_resume').value || null,
-    };
+    const formData = new FormData();
+    formData.append('cpf_candidato', document.querySelector('#candidate_cpf').value);
+    formData.append('nome', document.querySelector('#candidate_name').value || '');
+    formData.append('email', document.querySelector('#candidate_email').value);
+    formData.append('telefone', document.querySelector('#candidate_phone').value || '');
+    const resume = document.querySelector('#candidate_resume').files[0];
+    if (resume) {
+        formData.append('curriculo', resume);
+    }
+    return formData;
 }
 
 function jobPayload() {
@@ -470,7 +483,7 @@ function editCandidate(candidate) {
     document.querySelector('#candidate_name').value = candidate.nome || '';
     document.querySelector('#candidate_email').value = candidate.email || '';
     document.querySelector('#candidate_phone').value = candidate.telefone || '';
-    document.querySelector('#candidate_resume').value = candidate.curriculo || '';
+    document.querySelector('#candidate_resume').value = '';
     document.querySelector('#candidate_username').disabled = true;
     document.querySelector('#candidate_password').disabled = true;
     document.querySelector('#candidate_cpf').disabled = true;
@@ -600,10 +613,10 @@ async function saveCandidate(event) {
     event.preventDefault();
     const editCpf = document.querySelector('#candidate_edit_cpf').value;
     const url = editCpf ? `${apiBase}/candidatos/${editCpf}/` : `${apiBase}/candidatos/`;
-    const method = editCpf ? 'PUT' : 'POST';
+    const method = 'POST';
     const body = editCpf ? candidateEditPayload() : candidatePayload();
     try {
-        await requestJson(url, { method, body: JSON.stringify(body) });
+        await requestForm(url, { method, body });
         clearCandidateForm();
         await loadAll();
         setText('#candidate-message', 'Salvo.');
