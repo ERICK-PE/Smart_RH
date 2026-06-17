@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotAuthenticated, NotFound, PermissionDenied
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from apps.api_mixins import RHAdminAccessMixin, RHAdminModelViewSetMixin, ResumoActionMixin
@@ -72,6 +73,7 @@ class CandidatoViewSet(CandidatoAccessMixin, ResumoActionMixin, viewsets.ModelVi
     serializer_class = CandidatoReadSerializer
     write_serializer_class = CandidatoWriteSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [JSONParser, FormParser, MultiPartParser]
     lookup_value_regex = r'[^/]+'
     filterset_class = CandidatoFilter
     filterset_fields = ['cpf_candidato', 'nome']

@@ -17,6 +17,39 @@ from apps.validators import (
 )
 
 CANDIDATO_AUTH_USERNAME_PREFIX = 'candidato:'
+CURRICULO_ALLOWED_EXTENSIONS = {'.pdf', '.doc', '.docx'}
+CURRICULO_ALLOWED_CONTENT_TYPES = {
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+}
+CURRICULO_MAX_SIZE_BYTES = 5 * 1024 * 1024
+
+
+def get_file_name(value):
+    """Retorna caminho persistido do arquivo, nao objeto de arquivo."""
+    return getattr(value, 'name', value) or None
+
+
+def validate_curriculo_upload(value):
+    """Valida upload de curriculo por extensao, tipo e tamanho."""
+    if value in [None, '']:
+        return value
+
+    filename = getattr(value, 'name', '')
+    extension = f'.{filename.rsplit(".", 1)[-1].lower()}' if '.' in filename else ''
+    if extension not in CURRICULO_ALLOWED_EXTENSIONS:
+        raise serializers.ValidationError('Curriculo deve ser PDF, DOC ou DOCX.')
+
+    content_type = getattr(value, 'content_type', None)
+    if content_type and content_type not in CURRICULO_ALLOWED_CONTENT_TYPES:
+        raise serializers.ValidationError('Tipo de arquivo do curriculo nao permitido.')
+
+    size = getattr(value, 'size', 0) or 0
+    if size > CURRICULO_MAX_SIZE_BYTES:
+        raise serializers.ValidationError('Curriculo deve ter no maximo 5MB.')
+
+    return value
 
 
 def build_case_insensitive_query(field_name, values):
@@ -134,7 +167,7 @@ class CandidatoReadSerializer(serializers.ModelSerializer):
     def get_curriculo(self, obj) -> str | None:
         """Retorna curriculo apenas para contexto autorizado."""
         if can_view_candidato_sensitive(self, obj):
-            return obj.curriculo
+            return get_file_name(obj.curriculo)
         return None
 
 
@@ -156,11 +189,10 @@ class CandidatoWriteSerializer(serializers.ModelSerializer):
         allow_null=True,
         validators=[phone_format_validator],
     )
-    curriculo = serializers.CharField(
+    curriculo = serializers.FileField(
         required=False,
-        allow_blank=True,
         allow_null=True,
-        validators=[safe_text_validator],
+        validators=[validate_curriculo_upload],
     )
 
     class Meta:
@@ -199,9 +231,6 @@ class CandidatoWriteSerializer(serializers.ModelSerializer):
             attrs['email'] = normalize_optional_text(attrs.get('email'))
         if 'telefone' in attrs:
             attrs['telefone'] = normalize_optional_text(attrs.get('telefone'))
-        if 'curriculo' in attrs:
-            attrs['curriculo'] = normalize_optional_text(attrs.get('curriculo'))
-
         return attrs
 
 
@@ -225,11 +254,10 @@ class CandidatoRegistrationSerializer(serializers.Serializer):
         allow_null=True,
         validators=[phone_format_validator],
     )
-    curriculo = serializers.CharField(
+    curriculo = serializers.FileField(
         required=False,
-        allow_blank=True,
         allow_null=True,
-        validators=[safe_text_validator],
+        validators=[validate_curriculo_upload],
     )
 
     def validate_username(self, value):
@@ -272,9 +300,6 @@ class CandidatoRegistrationSerializer(serializers.Serializer):
             attrs['nome'] = normalize_optional_text(attrs.get('nome'))
         if 'telefone' in attrs:
             attrs['telefone'] = normalize_optional_text(attrs.get('telefone'))
-        if 'curriculo' in attrs:
-            attrs['curriculo'] = normalize_optional_text(attrs.get('curriculo'))
-
         return attrs
 
     def create(self, validated_data):
@@ -338,7 +363,7 @@ class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
     def get_curriculo(self, obj) -> str | None:
         """Retorna curriculo apenas para contexto autorizado com vagas."""
         if can_view_candidato_sensitive(self, obj):
-            return obj.curriculo
+            return get_file_name(obj.curriculo)
         return None
 
 

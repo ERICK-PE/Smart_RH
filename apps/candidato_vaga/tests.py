@@ -3,15 +3,18 @@ from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import Http404
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.urls import resolve
+from rest_framework.parsers import MultiPartParser
 from rest_framework import serializers, viewsets
 from rest_framework.exceptions import NotFound, PermissionDenied
 
 from apps.candidato_vaga.api.serializers import (
     CandidaturaCreateSerializer,
     CandidatoRegistrationSerializer,
+    CandidatoReadSerializer,
     CandidatoVagaReadSerializer,
     CandidatoVagaWriteSerializer,
     CandidatoWriteSerializer,
@@ -19,7 +22,7 @@ from apps.candidato_vaga.api.serializers import (
 )
 from apps.candidato_vaga.api.test_views import candidato_vaga_test_page
 from apps.candidato_vaga.api.views import CandidatoAccessMixin, CandidatoVagaViewSet, CandidatoViewSet, VagaViewSet
-from apps.candidato_vaga.models import Candidato, CandidatoVaga, Vaga
+from apps.candidato_vaga.models import Candidato, CandidatoVaga, Vaga, candidato_curriculo_upload_path
 
 
 class CandidatoWriteSerializerTests(SimpleTestCase):
@@ -32,16 +35,115 @@ class CandidatoWriteSerializerTests(SimpleTestCase):
             with self.assertRaises(serializers.ValidationError):
                 serializer.validate_cpf_candidato('12345678901')
 
-    def test_curriculo_rejeita_html_simples(self):
+    def test_curriculo_aceita_pdf_doc_e_docx(self):
         candidato = Candidato(cpf_candidato='12345678901')
+
+        arquivos = [
+            ('curriculo.pdf', 'application/pdf'),
+            ('curriculo.doc', 'application/msword'),
+            (
+                'curriculo.docx',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ),
+        ]
+
+        for filename, content_type in arquivos:
+            with self.subTest(filename=filename):
+                serializer = CandidatoWriteSerializer(
+                    candidato,
+                    data={
+                        'curriculo': SimpleUploadedFile(
+                            filename,
+                            b'conteudo',
+                            content_type=content_type,
+                        )
+                    },
+                    partial=True,
+                )
+
+                self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_curriculo_rejeita_extensao_invalida(self):
         serializer = CandidatoWriteSerializer(
-            candidato,
-            data={'curriculo': '<script>alert(1)</script>'},
+            Candidato(cpf_candidato='12345678901'),
+            data={
+                'curriculo': SimpleUploadedFile(
+                    'curriculo.exe',
+                    b'conteudo',
+                    content_type='application/octet-stream',
+                )
+            },
             partial=True,
         )
 
         self.assertFalse(serializer.is_valid())
         self.assertIn('curriculo', serializer.errors)
+
+    def test_curriculo_rejeita_tipo_invalido_mesmo_com_extensao_valida(self):
+        serializer = CandidatoWriteSerializer(
+            Candidato(cpf_candidato='12345678901'),
+            data={
+                'curriculo': SimpleUploadedFile(
+                    'curriculo.pdf',
+                    b'conteudo',
+                    content_type='text/plain',
+                )
+            },
+            partial=True,
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('curriculo', serializer.errors)
+
+    def test_curriculo_rejeita_arquivo_maior_que_5mb(self):
+        serializer = CandidatoWriteSerializer(
+            Candidato(cpf_candidato='12345678901'),
+            data={
+                'curriculo': SimpleUploadedFile(
+                    'curriculo.pdf',
+                    b'0' * ((5 * 1024 * 1024) + 1),
+                    content_type='application/pdf',
+                )
+            },
+            partial=True,
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('curriculo', serializer.errors)
+
+    def test_curriculo_upload_path_usa_nome_original_sanitizado_sem_cpf(self):
+        candidato = Candidato(cpf_candidato='123.456.789-01')
+
+        path = candidato_curriculo_upload_path(candidato, 'Meu Curriculo Pessoal.PDF')
+
+        self.assertEqual(path, 'curriculos/Meu_Curriculo_Pessoal.pdf')
+        self.assertNotIn('12345678901', path)
+
+    def test_curriculo_upload_path_remove_diretorios_do_nome_original(self):
+        candidato = Candidato(cpf_candidato='12345678901')
+
+        path = candidato_curriculo_upload_path(candidato, '../../curriculo final.docx')
+
+        self.assertEqual(path, 'curriculos/curriculo_final.docx')
+
+
+class CandidatoReadSerializerTests(SimpleTestCase):
+    def test_curriculo_retorna_caminho_para_contexto_privilegiado(self):
+        candidato = Candidato(
+            cpf_candidato='12345678901',
+            curriculo='curriculos/12345678901.pdf',
+        )
+        request = SimpleNamespace(
+            user=SimpleNamespace(
+                is_authenticated=True,
+                is_staff=True,
+                is_superuser=False,
+            )
+        )
+
+        data = CandidatoReadSerializer(candidato, context={'request': request}).data
+
+        self.assertEqual(data['curriculo'], 'curriculos/12345678901.pdf')
 
 
 class CandidatoRegistrationSerializerTests(SimpleTestCase):
@@ -203,6 +305,9 @@ class CandidatoVagaViewSetTests(SimpleTestCase):
         self.assertTrue(issubclass(VagaViewSet, viewsets.ModelViewSet))
         self.assertTrue(issubclass(CandidatoVagaViewSet, viewsets.ModelViewSet))
 
+    def test_candidato_viewset_aceita_multipart_para_curriculo(self):
+        self.assertIn(MultiPartParser, CandidatoViewSet.parser_classes)
+
     def test_rota_atualizacao_processo_da_vaga_existe(self):
         match = resolve('/api/candidato/vagas/1/rh/processos/12345678901/')
 
@@ -277,6 +382,21 @@ class VagaStatusMigrationTests(SimpleTestCase):
         )
 
 
+class CandidatoCurriculoMigrationTests(SimpleTestCase):
+    def test_migration_0004_modela_curriculo_como_filefield_sem_operacao_fisica(self):
+        migration_module = importlib.import_module('apps.candidato_vaga.migrations.0004_alter_candidato_curriculo_file')
+        operation = migration_module.Migration.operations[0]
+        field = operation.state_operations[0].field
+
+        self.assertEqual(operation.database_operations, [])
+        self.assertEqual(field.max_length, 255)
+        self.assertEqual(field.upload_to, candidato_curriculo_upload_path)
+        self.assertEqual(
+            migration_module.Migration.dependencies,
+            [('candidato_vaga', '0003_add_vaga_status')],
+        )
+
+
 class CandidatoVagaTestPageTests(SimpleTestCase):
     @override_settings(DEBUG=True)
     def test_tela_teste_renderiza_forms_tabelas_e_botoes(self):
@@ -286,6 +406,7 @@ class CandidatoVagaTestPageTests(SimpleTestCase):
         content = response.content.decode('utf-8')
 
         self.assertIn('<form id="candidate-form">', content)
+        self.assertIn('type="file" accept=".pdf,.doc,.docx"', content)
         self.assertIn('<form id="job-form">', content)
         self.assertIn('<form id="application-form">', content)
         self.assertIn('Editar', content)
