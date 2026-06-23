@@ -18,6 +18,7 @@ from apps.candidato_vaga.api.serializers import (
     CandidatoVagaReadSerializer,
     CandidatoVagaWriteSerializer,
     CandidatoWriteSerializer,
+    VagaReadSerializer,
     VagaWriteSerializer,
 )
 from apps.candidato_vaga.api.test_views import candidato_vaga_test_page
@@ -327,6 +328,35 @@ class CandidatoVagaViewSetTests(SimpleTestCase):
         match = resolve('/api/candidato/teste/')
 
         self.assertEqual(match.url_name, 'candidato-vaga-teste-page')
+
+    def test_vagas_disponiveis_exclui_status_fechada_e_cancelada(self):
+        candidato = Mock()
+        candidato.candidatovaga_set.values_list.return_value = [3]
+        vagas_elegiveis = Mock()
+        vagas_nao_candidatadas = Mock()
+        vagas_elegiveis.exclude.return_value = vagas_nao_candidatadas
+        vagas_nao_candidatadas.order_by.return_value = 'vagas-disponiveis'
+
+        viewset = CandidatoViewSet()
+        viewset.get_candidato_object = Mock(return_value=candidato)
+        viewset.paginated_serializer_response = Mock(return_value='response')
+
+        with patch(
+            'apps.candidato_vaga.api.views.Vaga.objects.filter',
+            return_value=vagas_elegiveis,
+        ) as filter_mock:
+            response = viewset.vagas_disponiveis(SimpleNamespace(), pk='12345678901')
+
+        filter_mock.assert_called_once_with(
+            status__in=[Vaga.STATUS_ABERTA, Vaga.STATUS_ANDAMENTO],
+        )
+        vagas_elegiveis.exclude.assert_called_once_with(pk__in=[3])
+        vagas_nao_candidatadas.order_by.assert_called_once_with('id_vaga')
+        viewset.paginated_serializer_response.assert_called_once_with(
+            'vagas-disponiveis',
+            VagaReadSerializer,
+        )
+        self.assertEqual(response, 'response')
 
     def test_lookup_composto_usa_cpf_e_vaga(self):
         viewset = CandidatoVagaViewSet()
