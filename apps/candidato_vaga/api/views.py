@@ -206,7 +206,12 @@ class CandidatoViewSet(CandidatoAccessMixin, ResumoActionMixin, viewsets.ModelVi
         """Lista vagas em que candidato ainda nao se inscreveu."""
         candidato = self.get_candidato_object()
         vagas_candidatadas = candidato.candidatovaga_set.values_list('id_vaga_id', flat=True)
-        vagas = Vaga.objects.exclude(pk__in=vagas_candidatadas).order_by('id_vaga')
+        vagas = (
+            Vaga.objects
+            .filter(status__in=[Vaga.STATUS_ABERTA, Vaga.STATUS_ANDAMENTO])
+            .exclude(pk__in=vagas_candidatadas)
+            .order_by('id_vaga')
+        )
         return self.paginated_serializer_response(vagas, VagaReadSerializer)
 
     @action(detail=True, methods=['get'], url_path='vagas-candidatadas')
