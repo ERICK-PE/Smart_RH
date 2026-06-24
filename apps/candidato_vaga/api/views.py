@@ -272,6 +272,17 @@ class VagaViewSet(
         """Retorna indicadores administrativos de vagas e candidaturas."""
         self.assert_rh_admin_access()
         vagas_queryset = self.filter_queryset(self.get_queryset())
+        vagas_fechadas_queryset = vagas_queryset.filter(status=Vaga.STATUS_FECHADA)
+        vagas_visiveis_queryset = vagas_queryset.filter(
+            status__in=[Vaga.STATUS_ABERTA, Vaga.STATUS_ANDAMENTO],
+        )
+        candidaturas_queryset = CandidatoVaga.objects.filter(id_vaga__in=vagas_queryset)
+        candidaturas_fechadas_queryset = CandidatoVaga.objects.filter(
+            id_vaga__in=vagas_fechadas_queryset,
+        )
+        candidaturas_visiveis_queryset = CandidatoVaga.objects.filter(
+            id_vaga__in=vagas_visiveis_queryset,
+        )
         vaga_status_counts = (
             vagas_queryset
             .values('status')
@@ -279,7 +290,19 @@ class VagaViewSet(
             .order_by('status')
         )
         status_counts = (
-            CandidatoVaga.objects
+            candidaturas_queryset
+            .values('status_processo')
+            .annotate(total=Count('cpf_candidato'))
+            .order_by('status_processo')
+        )
+        status_fechadas_counts = (
+            candidaturas_fechadas_queryset
+            .values('status_processo')
+            .annotate(total=Count('cpf_candidato'))
+            .order_by('status_processo')
+        )
+        status_visiveis_counts = (
+            candidaturas_visiveis_queryset
             .values('status_processo')
             .annotate(total=Count('cpf_candidato'))
             .order_by('status_processo')
@@ -287,7 +310,9 @@ class VagaViewSet(
         return Response({
             'total_vagas': vagas_queryset.count(),
             'total_candidatos': Candidato.objects.count(),
-            'total_candidaturas': CandidatoVaga.objects.count(),
+            'total_candidaturas': candidaturas_queryset.count(),
+            'total_candidaturas_vagas_fechadas': candidaturas_fechadas_queryset.count(),
+            'total_candidaturas_vagas_visiveis': candidaturas_visiveis_queryset.count(),
             'vagas_por_status': {
                 item['status'] or 'sem_status': item['total']
                 for item in vaga_status_counts
@@ -295,6 +320,14 @@ class VagaViewSet(
             'candidaturas_por_status': {
                 item['status_processo'] or 'sem_status': item['total']
                 for item in status_counts
+            },
+            'candidaturas_vagas_fechadas_por_status': {
+                item['status_processo'] or 'sem_status': item['total']
+                for item in status_fechadas_counts
+            },
+            'candidaturas_vagas_visiveis_por_status': {
+                item['status_processo'] or 'sem_status': item['total']
+                for item in status_visiveis_counts
             },
         })
 
