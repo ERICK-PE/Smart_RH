@@ -79,3 +79,33 @@ class Contrato(models.Model):
     class Meta:
         managed = False
         db_table = 'contrato'
+
+
+def funcionario_agente_documento_upload_path(instance, filename):
+    """Monta caminho logico em imp_doc preservando nome base enviado."""
+    basename = (filename or '').replace('\\', '/').split('/')[-1].strip() or 'documento'
+    return f'imp_doc/{basename}'
+
+
+class FuncionarioAgenteDocumento(models.Model):
+    id_documento = models.AutoField(primary_key=True)
+    titulo = models.CharField(max_length=150)
+    arquivo = models.FileField(upload_to=funcionario_agente_documento_upload_path, max_length=255)
+    conteudo_extraido = models.TextField()
+    ativo = models.BooleanField(default=True)
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        models.SET_NULL,
+        db_column='id_usuario',
+        blank=True,
+        null=True,
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        """Retorna titulo do documento sem expor conteudo interno."""
+        return self.titulo
+
+    class Meta:
+        db_table = 'agente_documento'

@@ -9,7 +9,12 @@ from apps.avaliacao.api.views import (
     AvaliacaoDesempenhoViewSet,
 )
 from apps.candidato_vaga.api.views import CandidatoVagaViewSet, CandidatoViewSet, VagaViewSet
-from apps.funcionario.api.views import ContratoViewSet, FuncionarioViewSet, PlanoCarreiraViewSet
+from apps.funcionario.api.views import (
+    ContratoViewSet,
+    FuncionarioAgenteDocumentoViewSet,
+    FuncionarioViewSet,
+    PlanoCarreiraViewSet,
+)
 from apps.setor.api.views import CargoViewSet, SetorViewSet
 
 
@@ -20,6 +25,7 @@ class APIEndpointContractTests(SimpleTestCase):
         '/api/funcionario/funcionarios/',
         '/api/funcionario/planos-carreira/',
         '/api/funcionario/contratos/',
+        '/api/funcionario/agente/',
         '/api/candidato/candidatos/',
         '/api/candidato/vagas/',
         '/api/candidato/candidato-vagas/',
@@ -32,6 +38,7 @@ class APIEndpointContractTests(SimpleTestCase):
         '/api/funcionario/funcionarios/1/',
         '/api/funcionario/planos-carreira/1/',
         '/api/funcionario/contratos/1/',
+        '/api/funcionario/agente/1/',
         '/api/candidato/candidatos/12345678901/',
         '/api/candidato/vagas/1/',
         '/api/candidato/candidato-vagas/12345678901:1/',
@@ -44,6 +51,7 @@ class APIEndpointContractTests(SimpleTestCase):
         FuncionarioViewSet,
         PlanoCarreiraViewSet,
         ContratoViewSet,
+        FuncionarioAgenteDocumentoViewSet,
         CandidatoViewSet,
         VagaViewSet,
         CandidatoVagaViewSet,
@@ -56,6 +64,7 @@ class APIEndpointContractTests(SimpleTestCase):
         FuncionarioViewSet,
         PlanoCarreiraViewSet,
         ContratoViewSet,
+        FuncionarioAgenteDocumentoViewSet,
         VagaViewSet,
         CandidatoVagaViewSet,
         AnaliseComportamentalViewSet,

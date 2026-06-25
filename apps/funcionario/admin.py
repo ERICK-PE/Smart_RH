@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Contrato, Funcionario, PlanoCarreira
+from .models import Contrato, Funcionario, FuncionarioAgenteDocumento, PlanoCarreira
 
 
 @admin.register(Funcionario)
@@ -21,3 +21,11 @@ class ContratoAdmin(admin.ModelAdmin):
     list_display = ("id_contrato", "fk_id_funcionario", "tipo_contrato", "data_inicio", "data_fim")
     list_filter = ("tipo_contrato", "data_inicio")
     search_fields = ("fk_id_funcionario__nome",)
+
+
+@admin.register(FuncionarioAgenteDocumento)
+class FuncionarioAgenteDocumentoAdmin(admin.ModelAdmin):
+    list_display = ("id_documento", "titulo", "ativo", "criado_por", "criado_em")
+    list_filter = ("ativo", "criado_em")
+    search_fields = ("titulo", "criado_por__username")
+    readonly_fields = ("conteudo_extraido", "criado_em", "atualizado_em")

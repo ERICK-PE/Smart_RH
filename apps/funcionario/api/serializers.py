@@ -3,7 +3,12 @@ from django.utils import timezone
 from decimal import Decimal
 from rest_framework import serializers
 
-from apps.funcionario.models import Contrato, Funcionario, PlanoCarreira
+from apps.funcionario.models import Contrato, Funcionario, FuncionarioAgenteDocumento, PlanoCarreira
+from apps.funcionario.services.agente_documentos import (
+    extract_text_from_document_file,
+    save_important_document_upload,
+    validate_document_file,
+)
 from apps.validators import (
     cpf_format_validator,
     nome_validators,
@@ -314,6 +319,85 @@ class ContratoWriteSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class FuncionarioAgenteDocumentoReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FuncionarioAgenteDocumento
+        fields = [
+            'id_documento',
+            'titulo',
+            'arquivo',
+            'ativo',
+            'criado_por',
+            'criado_em',
+            'atualizado_em',
+        ]
+        read_only_fields = fields
+
+
+class FuncionarioAgenteDocumentoWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FuncionarioAgenteDocumento
+        fields = [
+            'id_documento',
+            'titulo',
+            'arquivo',
+            'ativo',
+        ]
+        read_only_fields = [
+            'id_documento',
+        ]
+
+    def validate_titulo(self, value):
+        """Normaliza titulo do documento RH."""
+        return normalize_required_text(value, 'titulo')
+
+    def validate_arquivo(self, value):
+        """Aceita somente documento RH em PDF, DOC ou DOCX."""
+        try:
+            validate_document_file(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+
+        return value
+
+    def validate(self, attrs):
+        """Extrai texto do arquivo quando documento e enviado."""
+        arquivo = attrs.get('arquivo')
+        if arquivo is not None:
+            try:
+                attrs['conteudo_extraido'] = extract_text_from_document_file(arquivo)
+            except ValueError as exc:
+                raise serializers.ValidationError({'arquivo': str(exc)}) from exc
+
+        return attrs
+
+    def create(self, validated_data):
+        """Salva upload fisico em imp_doc e persiste somente caminho relativo."""
+        arquivo = validated_data.pop('arquivo', None)
+        if arquivo is not None:
+            validated_data['arquivo'] = save_important_document_upload(arquivo)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        """Atualiza documento mantendo upload fisico em imp_doc."""
+        arquivo = validated_data.pop('arquivo', None)
+        if arquivo is not None:
+            validated_data['arquivo'] = save_important_document_upload(arquivo)
+        return super().update(instance, validated_data)
+
+
+class FuncionarioAgentePerguntaSerializer(serializers.Serializer):
+    pergunta = serializers.CharField(max_length=500)
+
+    def validate_pergunta(self, value):
+        """Normaliza pergunta do funcionario."""
+        pergunta = normalize_required_text(value, 'pergunta')
+        if len(pergunta) < 5:
+            raise serializers.ValidationError('Pergunta deve ter pelo menos 5 caracteres.')
+        return pergunta
+
+
 FuncionarioSerializer = FuncionarioReadSerializer
 PlanoCarreiraSerializer = PlanoCarreiraReadSerializer
 ContratoSerializer = ContratoReadSerializer
+FuncionarioAgenteDocumentoSerializer = FuncionarioAgenteDocumentoReadSerializer

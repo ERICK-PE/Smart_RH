@@ -2,6 +2,7 @@ from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from apps.api_mixins import FuncionarioComumAccessMixin, RHAdminModelViewSetMixin, ResumoActionMixin
@@ -15,12 +16,16 @@ from apps.funcionario.api.filters import ContratoFilter, FuncionarioFilter, Plan
 from apps.funcionario.api.serializers import (
     ContratoReadSerializer,
     ContratoWriteSerializer,
+    FuncionarioAgenteDocumentoReadSerializer,
+    FuncionarioAgenteDocumentoWriteSerializer,
+    FuncionarioAgentePerguntaSerializer,
     FuncionarioReadSerializer,
     FuncionarioWriteSerializer,
     PlanoCarreiraReadSerializer,
     PlanoCarreiraWriteSerializer,
 )
-from apps.funcionario.models import Contrato, Funcionario, PlanoCarreira
+from apps.funcionario.models import Contrato, Funcionario, FuncionarioAgenteDocumento, PlanoCarreira
+from apps.funcionario.services.agente_documentos import answer_question_with_openai, load_important_document_sources
 
 
 class FuncionarioViewSet(
@@ -405,3 +410,55 @@ class ContratoViewSet(
             {'detail': 'Arquivo de contrato ainda nao foi modelado.'},
             status=status.HTTP_501_NOT_IMPLEMENTED,
         )
+
+
+class FuncionarioAgenteDocumentoViewSet(
+    RHAdminModelViewSetMixin,
+    FuncionarioComumAccessMixin,
+    ResumoActionMixin,
+    viewsets.ModelViewSet,
+):
+    queryset = FuncionarioAgenteDocumento.objects.all().order_by('-criado_em')
+    serializer_class = FuncionarioAgenteDocumentoReadSerializer
+    write_serializer_class = FuncionarioAgenteDocumentoWriteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [JSONParser, FormParser, MultiPartParser]
+    filterset_fields = ['id_documento', 'titulo', 'ativo']
+    search_fields = ['titulo']
+
+    def initial(self, request, *args, **kwargs):
+        """Permite pergunta ao funcionario e restringe gestao documental ao RH."""
+        super().initial(request, *args, **kwargs)
+        if getattr(self, 'action', None) != 'perguntar':
+            self.assert_rh_admin_access()
+
+    def perform_create(self, serializer):
+        """Registra usuario RH/admin que enviou documento."""
+        serializer.save(criado_por=self.request.user)
+
+    @action(detail=False, methods=['post'], url_path='perguntar')
+    def perguntar(self, request):
+        """Responde pergunta para integrante interno usando documentos em imp_doc."""
+        if not self.user_has_global_access():
+            self.get_request_funcionario_id()
+
+        serializer = FuncionarioAgentePerguntaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        pergunta = serializer.validated_data['pergunta']
+
+        documentos = load_important_document_sources()
+        if not documentos:
+            return Response(
+                {'detail': 'Nenhum documento importante legivel encontrado em imp_doc.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            resposta = answer_question_with_openai(pergunta, documentos)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        return Response({
+            'pergunta': pergunta,
+            **resposta,
+        })

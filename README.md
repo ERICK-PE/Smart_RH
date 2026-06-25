@@ -44,6 +44,8 @@ Runtime:
 - djangorestframework-simplejwt
 - drf-spectacular
 - psycopg2-binary
+- pypdf
+- openai
 
 Desenvolvimento/testes:
 
@@ -88,6 +90,8 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhos
 CORS_ALLOW_CREDENTIALS=True
 JWT_ACCESS_TOKEN_MINUTES=30
 JWT_REFRESH_TOKEN_DAYS=1
+OPEN_API_KEY=sua_chave_openai
+OPENAI_AGENT_MODEL=gpt-4o-mini
 ```
 
 ## Preparar outra maquina
@@ -133,6 +137,17 @@ Observacao:
 - `pytest.ini` limita descoberta para arquivos reais de teste.
 - Arquivos `apps/*/api/test_views.py` sao views locais de teste/debug, nao testes pytest.
 - `sitecustomize.py` cria fallback local `.tmp/` apenas quando Python nao encontra nenhum diretorio temporario utilizavel no ambiente.
+
+## Agente interno de RH
+
+O backend possui endpoint para perguntas dos integrantes internos da empresa com base em documentos importantes enviados pelo RH:
+
+- RH/admin gerencia documentos em `/api/funcionario/agente/`.
+- Funcionario comum, lideranca, RH e admin autenticados perguntam em `POST /api/funcionario/agente/perguntar/`.
+- Documentos aceitos: `.pdf`, `.docx`, `.doc`.
+- Uploads ficam em `imp_doc/` com o nome base original do arquivo.
+- Resposta usa a API da OpenAI com contexto extraido de todos os documentos legiveis em `imp_doc/`.
+- A chave deve vir do ambiente em `OPEN_API_KEY`; `.env` nunca deve ser versionado.
 
 ## Seguranca
 

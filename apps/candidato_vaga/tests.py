@@ -378,21 +378,57 @@ class CandidatoVagaViewSetTests(SimpleTestCase):
         vagas_queryset.values.return_value.annotate.return_value.order_by.return_value = [
             {'status': Vaga.STATUS_ABERTA, 'total': 2},
         ]
+        vagas_fechadas_queryset = Mock()
+        vagas_visiveis_queryset = Mock()
+        vagas_queryset.filter.side_effect = [
+            vagas_fechadas_queryset,
+            vagas_visiveis_queryset,
+        ]
+        candidaturas_queryset = Mock()
+        candidaturas_queryset.count.return_value = 5
+        candidaturas_queryset.values.return_value.annotate.return_value.order_by.return_value = [
+            {'status_processo': 'candidatado', 'total': 5},
+        ]
+        candidaturas_fechadas_queryset = Mock()
+        candidaturas_fechadas_queryset.count.return_value = 2
+        candidaturas_fechadas_queryset.values.return_value.annotate.return_value.order_by.return_value = [
+            {'status_processo': 'finalizado', 'total': 2},
+        ]
+        candidaturas_visiveis_queryset = Mock()
+        candidaturas_visiveis_queryset.count.return_value = 3
+        candidaturas_visiveis_queryset.values.return_value.annotate.return_value.order_by.return_value = [
+            {'status_processo': 'triagem', 'total': 3},
+        ]
         viewset.get_queryset = Mock(return_value='base-queryset')
         viewset.filter_queryset = Mock(return_value=vagas_queryset)
 
         with patch('apps.candidato_vaga.api.views.Candidato.objects.count', return_value=3):
-            with patch('apps.candidato_vaga.api.views.CandidatoVaga.objects.count', return_value=4):
-                with patch('apps.candidato_vaga.api.views.CandidatoVaga.objects.values') as values_mock:
-                    values_mock.return_value.annotate.return_value.order_by.return_value = [
-                        {'status_processo': 'candidatado', 'total': 4},
-                    ]
-
-                    response = viewset.rh_indicadores(SimpleNamespace())
+            with patch(
+                'apps.candidato_vaga.api.views.CandidatoVaga.objects.filter',
+                side_effect=[
+                    candidaturas_queryset,
+                    candidaturas_fechadas_queryset,
+                    candidaturas_visiveis_queryset,
+                ],
+            ) as candidatura_filter_mock:
+                response = viewset.rh_indicadores(SimpleNamespace())
 
         viewset.filter_queryset.assert_called_once_with('base-queryset')
+        vagas_queryset.filter.assert_any_call(status=Vaga.STATUS_FECHADA)
+        vagas_queryset.filter.assert_any_call(
+            status__in=[Vaga.STATUS_ABERTA, Vaga.STATUS_ANDAMENTO],
+        )
+        candidatura_filter_mock.assert_any_call(id_vaga__in=vagas_queryset)
+        candidatura_filter_mock.assert_any_call(id_vaga__in=vagas_fechadas_queryset)
+        candidatura_filter_mock.assert_any_call(id_vaga__in=vagas_visiveis_queryset)
         self.assertEqual(response.data['total_vagas'], 2)
+        self.assertEqual(response.data['total_candidaturas'], 5)
+        self.assertEqual(response.data['total_candidaturas_vagas_fechadas'], 2)
+        self.assertEqual(response.data['total_candidaturas_vagas_visiveis'], 3)
         self.assertEqual(response.data['vagas_por_status'], {Vaga.STATUS_ABERTA: 2})
+        self.assertEqual(response.data['candidaturas_por_status'], {'candidatado': 5})
+        self.assertEqual(response.data['candidaturas_vagas_fechadas_por_status'], {'finalizado': 2})
+        self.assertEqual(response.data['candidaturas_vagas_visiveis_por_status'], {'triagem': 3})
 
 
 class VagaStatusMigrationTests(SimpleTestCase):

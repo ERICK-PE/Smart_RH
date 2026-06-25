@@ -64,6 +64,8 @@ db.sqlite3-journal
 media/*
 !media/curriculos/
 !media/curriculos/.gitkeep
+imp_doc/*
+!imp_doc/.gitkeep
 
 # Flask stuff:
 instance/

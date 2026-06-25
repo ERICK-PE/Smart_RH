@@ -4,6 +4,7 @@ from django.urls import path
 
 from apps.funcionario.api.views import (
     ContratoViewSet,
+    FuncionarioAgenteDocumentoViewSet,
     FuncionarioViewSet,
     PlanoCarreiraViewSet,
 )
@@ -12,6 +13,7 @@ router = DefaultRouter()
 router.register('funcionarios', FuncionarioViewSet, basename='funcionario')
 router.register('planos-carreira', PlanoCarreiraViewSet, basename='plano-carreira')
 router.register('contratos', ContratoViewSet, basename='contrato')
+router.register('agente', FuncionarioAgenteDocumentoViewSet, basename='funcionario-agente')
 
 urlpatterns = router.urls
 

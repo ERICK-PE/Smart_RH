@@ -7,7 +7,12 @@ from apps.avaliacao.api.views import AnaliseComportamentalViewSet, AvaliacaoDese
 from apps.candidato_vaga.api.filters import CandidatoFilter, CandidatoVagaFilter, VagaFilter
 from apps.candidato_vaga.api.views import CandidatoVagaViewSet, CandidatoViewSet, VagaViewSet
 from apps.funcionario.api.filters import ContratoFilter, FuncionarioFilter, PlanoCarreiraFilter
-from apps.funcionario.api.views import ContratoViewSet, FuncionarioViewSet, PlanoCarreiraViewSet
+from apps.funcionario.api.views import (
+    ContratoViewSet,
+    FuncionarioAgenteDocumentoViewSet,
+    FuncionarioViewSet,
+    PlanoCarreiraViewSet,
+)
 from apps.setor.api.filters import CargoFilter, SetorFilter
 from apps.setor.api.views import CargoViewSet, SetorViewSet
 
@@ -41,6 +46,7 @@ class APIFilterConfigurationTests(SimpleTestCase):
             FuncionarioViewSet,
             PlanoCarreiraViewSet,
             ContratoViewSet,
+            FuncionarioAgenteDocumentoViewSet,
             CandidatoViewSet,
             VagaViewSet,
             CandidatoVagaViewSet,
