@@ -16,7 +16,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from apps.api_mixins import FuncionarioComumAccessMixin, RHAdminAccessMixin
 from apps.funcionario.api.filters import FuncionarioFilter
-from apps.funcionario.api.test_views import funcionario_test_page
+from apps.funcionario.api.test_views import agente_test_page, funcionario_test_page
 from apps.funcionario.api.serializers import (
     FuncionarioAgenteDocumentoWriteSerializer,
     FuncionarioReadSerializer,
@@ -558,3 +558,42 @@ class FuncionarioTestPageTests(SimpleTestCase):
 
         with self.assertRaises(Http404):
             funcionario_test_page(request)
+
+
+class AgenteTestPageTests(SimpleTestCase):
+    @override_settings(DEBUG=True)
+    def test_rota_tela_teste_agente_existe(self):
+        match = resolve('/api/funcionario/teste/agente/')
+
+        self.assertEqual(match.url_name, 'funcionario-agente-teste-page')
+
+    @override_settings(DEBUG=True)
+    def test_rotas_api_teste_agente_existem(self):
+        expected_routes = {
+            '/api/funcionario/teste/api/agente/upload/': 'funcionario-agente-teste-upload',
+            '/api/funcionario/teste/api/agente/perguntar/': 'funcionario-agente-teste-perguntar',
+        }
+
+        for path, url_name in expected_routes.items():
+            with self.subTest(path=path):
+                self.assertEqual(resolve(path).url_name, url_name)
+
+    @override_settings(DEBUG=True)
+    def test_tela_teste_agente_renderiza_forms_e_outputs(self):
+        request = RequestFactory().get('/api/funcionario/teste/agente/')
+
+        response = agente_test_page(request)
+        content = response.content.decode('utf-8')
+
+        self.assertContains(response, '<form id="pergunta-form"', html=False)
+        self.assertContains(response, '<form id="upload-form"', html=False)
+        self.assertIn('id="resposta"', content)
+        self.assertIn('id="upload-output"', content)
+        self.assertIn('accept=".pdf,.doc,.docx"', content)
+
+    @override_settings(DEBUG=False)
+    def test_tela_teste_agente_fica_indisponivel_fora_de_debug(self):
+        request = RequestFactory().get('/api/funcionario/teste/agente/')
+
+        with self.assertRaises(Http404):
+            agente_test_page(request)

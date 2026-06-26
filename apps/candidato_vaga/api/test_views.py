@@ -8,6 +8,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from apps.candidato_vaga.api.serializers import (
+    CandidaturaCreateSerializer,
     CandidatoWriteSerializer,
     CandidatoRegistrationSerializer,
     CandidatoVagaWriteSerializer,
@@ -93,6 +94,9 @@ def candidatura_payload(candidatura):
         'vaga_titulo': getattr(vaga, 'titulo', None),
         'status_vaga': getattr(vaga, 'status', None),
         'status_processo': candidatura.status_processo,
+        'triagem_automatica_aprovada': candidatura.triagem_automatica_aprovada,
+        'triagem_automatica_motivo': candidatura.triagem_automatica_motivo,
+        'triagem_automatica_palavras_chave': candidatura.triagem_automatica_palavras_chave,
     }
 
 
@@ -227,8 +231,11 @@ def candidatura_test_collection(request):
     if data is None:
         return JsonResponse({'detail': 'JSON invalido.'}, status=400)
 
-    data.setdefault('status_processo', 'candidatado')
-    serializer = CandidatoVagaWriteSerializer(data=data)
+    candidato = get_object_or_404(Candidato, pk=data.get('cpf_candidato'))
+    serializer = CandidaturaCreateSerializer(
+        data={'id_vaga': data.get('id_vaga')},
+        context={'candidato': candidato},
+    )
     if not serializer.is_valid():
         return JsonResponse(serializer.errors, status=400)
 

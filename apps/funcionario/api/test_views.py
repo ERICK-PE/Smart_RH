@@ -7,8 +7,9 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
-from apps.funcionario.api.serializers import FuncionarioWriteSerializer
+from apps.funcionario.api.serializers import FuncionarioAgenteDocumentoWriteSerializer, FuncionarioWriteSerializer
 from apps.funcionario.models import Funcionario
+from apps.funcionario.services.agente_documentos import answer_question_with_openai, load_important_document_sources
 from apps.setor.models import Cargo, Setor
 
 
@@ -58,6 +59,62 @@ def funcionario_payload(funcionario):
 def funcionario_test_page(request):
     """Renderiza tela de teste de funcionarios."""
     return render(request, 'funcionario/funcionario_teste.html')
+
+
+@debug_only
+@ensure_csrf_cookie
+@require_http_methods(['GET'])
+def agente_test_page(request):
+    """Renderiza tela de teste do agente interno de RH."""
+    return render(request, 'funcionario/agente_teste.html')
+
+
+@debug_only
+@require_http_methods(['POST'])
+def agente_test_upload(request):
+    """Recebe upload debug para validar persistencia em imp_doc."""
+    serializer = FuncionarioAgenteDocumentoWriteSerializer(data={
+        'titulo': request.POST.get('titulo') or getattr(request.FILES.get('arquivo'), 'name', ''),
+        'arquivo': request.FILES.get('arquivo'),
+        'ativo': request.POST.get('ativo', 'true') not in {'false', '0', 'off'},
+    })
+    if not serializer.is_valid():
+        return JsonResponse(serializer.errors, status=400)
+
+    documento = serializer.save()
+    return JsonResponse({
+        'id_documento': documento.id_documento,
+        'titulo': documento.titulo,
+        'arquivo': documento.arquivo.name,
+        'ativo': documento.ativo,
+    }, status=201)
+
+
+@debug_only
+@require_http_methods(['POST'])
+def agente_test_perguntar(request):
+    """Executa pergunta debug lendo documentos atuais em imp_doc."""
+    data = parse_json_body(request)
+    if data is None:
+        return JsonResponse({'detail': 'JSON invalido.'}, status=400)
+
+    pergunta = (data.get('pergunta') or '').strip()
+    if len(pergunta) < 5:
+        return JsonResponse({'pergunta': 'Pergunta deve ter pelo menos 5 caracteres.'}, status=400)
+
+    documentos = load_important_document_sources()
+    if not documentos:
+        return JsonResponse({'detail': 'Nenhum documento importante legivel encontrado em imp_doc.'}, status=404)
+
+    try:
+        resposta = answer_question_with_openai(pergunta, documentos)
+    except ValueError as exc:
+        return JsonResponse({'detail': str(exc)}, status=503)
+
+    return JsonResponse({
+        'pergunta': pergunta,
+        **resposta,
+    })
 
 
 @debug_only

@@ -15,6 +15,7 @@ from apps.candidato_vaga.api.serializers import (
     CandidatoRegistrationSerializer,
     CandidatoReadSerializer,
     CandidatoWriteSerializer,
+    CandidatoVagaRHReadSerializer,
     CandidatoVagaReadSerializer,
     CandidatoVagaWriteSerializer,
     VagaReadSerializer,
@@ -361,12 +362,15 @@ class VagaViewSet(
 
     @action(detail=True, methods=['get'], url_path='rh/candidatos')
     def rh_candidatos(self, request, pk=None):
-        """Lista todos os candidatos da vaga para RH/admin."""
+        """Lista candidatos aprovados pela triagem automatica para RH/admin."""
         self.assert_rh_admin_access()
         vaga = self.get_object()
         return self.paginated_serializer_response(
-            vaga.candidatovaga_set.all().order_by('cpf_candidato'),
-            CandidatoVagaReadSerializer,
+            vaga.candidatovaga_set
+            .all()
+            .filter(triagem_automatica_aprovada=True)
+            .order_by('cpf_candidato'),
+            CandidatoVagaRHReadSerializer,
         )
 
     @action(detail=True, methods=['get'], url_path='rh/processos')
@@ -376,7 +380,7 @@ class VagaViewSet(
         vaga = self.get_object()
         return self.paginated_serializer_response(
             vaga.candidatovaga_set.all().order_by('cpf_candidato'),
-            CandidatoVagaReadSerializer,
+            CandidatoVagaRHReadSerializer,
         )
 
     @action(
@@ -414,8 +418,18 @@ class CandidatoVagaViewSet(
     permission_classes = [permissions.IsAuthenticated]
     lookup_value_regex = r'[^/]+'
     filterset_class = CandidatoVagaFilter
-    filterset_fields = ['cpf_candidato', 'id_vaga', 'status_processo']
-    search_fields = ['status_processo', 'id_vaga__titulo']
+    filterset_fields = [
+        'cpf_candidato',
+        'id_vaga',
+        'status_processo',
+        'triagem_automatica_aprovada',
+    ]
+    search_fields = [
+        'status_processo',
+        'triagem_automatica_motivo',
+        'triagem_automatica_palavras_chave',
+        'id_vaga__titulo',
+    ]
 
     def parse_composite_lookup(self, lookup_value):
         """Separa lookup composto no formato cpf_candidato:id_vaga."""

@@ -321,6 +321,8 @@
                         <th>Titulo</th>
                         <th>Status vaga</th>
                         <th>Status</th>
+                        <th>Triagem</th>
+                        <th>Motivo triagem</th>
                         <th>Acoes</th>
                     </tr>
                 </thead>
@@ -580,6 +582,8 @@ function renderApplications() {
         appendCell(row, application.vaga_titulo);
         appendCell(row, application.status_vaga);
         appendCell(row, application.status_processo);
+        appendCell(row, application.triagem_automatica_aprovada === null ? '' : application.triagem_automatica_aprovada ? 'aprovada' : 'reprovada');
+        appendCell(row, application.triagem_automatica_motivo);
         const actions = document.createElement('td');
         actions.appendChild(makeButton('Editar', 'secondary', () => editApplication(application)));
         actions.appendChild(document.createTextNode(' '));

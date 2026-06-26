@@ -6,6 +6,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.candidato_vaga.models import Candidato, CandidatoVaga, Vaga
+from apps.candidato_vaga.services.triagem_candidatura import analisar_candidatura
 from apps.validators import (
     cpf_format_validator,
     nome_validators,
@@ -478,6 +479,17 @@ class CandidatoVagaReadSerializer(serializers.ModelSerializer):
         return mask_cpf(candidato.pk)
 
 
+class CandidatoVagaRHReadSerializer(CandidatoVagaReadSerializer):
+    class Meta(CandidatoVagaReadSerializer.Meta):
+        fields = [
+            *CandidatoVagaReadSerializer.Meta.fields,
+            'triagem_automatica_aprovada',
+            'triagem_automatica_motivo',
+            'triagem_automatica_palavras_chave',
+        ]
+        read_only_fields = fields
+
+
 class CandidatoVagaWriteSerializer(serializers.ModelSerializer):
     status_processo = serializers.CharField(
         required=False,
@@ -545,11 +557,17 @@ class CandidaturaCreateSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
-        """Cria candidatura com status inicial candidato."""
+        """Cria candidatura com status publico e triagem automatica."""
+        candidato = self.context['candidato']
+        vaga = validated_data['id_vaga']
+        triagem = analisar_candidatura(candidato, vaga)
         return CandidatoVaga.objects.create(
-            cpf_candidato=self.context['candidato'],
-            id_vaga=validated_data['id_vaga'],
-            status_processo='candidatado',
+            cpf_candidato=candidato,
+            id_vaga=vaga,
+            status_processo='andamento',
+            triagem_automatica_aprovada=triagem.aprovado,
+            triagem_automatica_motivo=triagem.motivo,
+            triagem_automatica_palavras_chave=', '.join(triagem.palavras_chave),
         )
 
 

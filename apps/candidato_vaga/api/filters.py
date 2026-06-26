@@ -57,6 +57,7 @@ class CandidatoVagaFilter(filters.FilterSet):
     candidato = filters.CharFilter(field_name='cpf_candidato')
     vaga = filters.NumberFilter(field_name='id_vaga')
     status_processo = filters.CharFilter(field_name='status_processo', lookup_expr='icontains')
+    triagem_automatica_aprovada = filters.BooleanFilter(field_name='triagem_automatica_aprovada')
     candidato_nome = filters.CharFilter(field_name='cpf_candidato__nome', lookup_expr='icontains')
     vaga_titulo = filters.CharFilter(field_name='id_vaga__titulo', lookup_expr='icontains')
 
@@ -66,6 +67,7 @@ class CandidatoVagaFilter(filters.FilterSet):
             'candidato',
             'vaga',
             'status_processo',
+            'triagem_automatica_aprovada',
             'candidato_nome',
             'vaga_titulo',
         ]

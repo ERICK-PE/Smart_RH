@@ -15,6 +15,7 @@ from apps.candidato_vaga.api.serializers import (
     CandidaturaCreateSerializer,
     CandidatoRegistrationSerializer,
     CandidatoReadSerializer,
+    CandidatoVagaRHReadSerializer,
     CandidatoVagaReadSerializer,
     CandidatoVagaWriteSerializer,
     CandidatoWriteSerializer,
@@ -24,6 +25,11 @@ from apps.candidato_vaga.api.serializers import (
 from apps.candidato_vaga.api.test_views import candidato_vaga_test_page
 from apps.candidato_vaga.api.views import CandidatoAccessMixin, CandidatoVagaViewSet, CandidatoViewSet, VagaViewSet
 from apps.candidato_vaga.models import Candidato, CandidatoVaga, Vaga, candidato_curriculo_upload_path
+from apps.candidato_vaga.services.triagem_candidatura import (
+    TriagemCandidaturaResult,
+    analisar_candidatura,
+    extract_requirement_keywords,
+)
 
 
 class CandidatoWriteSerializerTests(SimpleTestCase):
@@ -269,6 +275,87 @@ class CandidatoVagaReadSerializerTests(SimpleTestCase):
 
         self.assertEqual(data['status_vaga'], Vaga.STATUS_FECHADA)
 
+    def test_read_serializer_comum_nao_expoe_triagem_automatica(self):
+        candidatura = CandidatoVaga(
+            cpf_candidato=Candidato(cpf_candidato='12345678901'),
+            id_vaga=Vaga(id_vaga=1, status=Vaga.STATUS_ABERTA),
+            status_processo='andamento',
+            triagem_automatica_aprovada=False,
+            triagem_automatica_motivo='faltou django',
+        )
+
+        data = CandidatoVagaReadSerializer(candidatura).data
+
+        self.assertNotIn('triagem_automatica_aprovada', data)
+        self.assertNotIn('triagem_automatica_motivo', data)
+
+    def test_read_serializer_rh_expoe_triagem_automatica(self):
+        candidatura = CandidatoVaga(
+            cpf_candidato=Candidato(cpf_candidato='12345678901'),
+            id_vaga=Vaga(id_vaga=1, status=Vaga.STATUS_ABERTA),
+            status_processo='andamento',
+            triagem_automatica_aprovada=True,
+            triagem_automatica_motivo='aprovado',
+            triagem_automatica_palavras_chave='python, django',
+        )
+
+        data = CandidatoVagaRHReadSerializer(candidatura).data
+
+        self.assertTrue(data['triagem_automatica_aprovada'])
+        self.assertEqual(data['triagem_automatica_motivo'], 'aprovado')
+        self.assertEqual(data['triagem_automatica_palavras_chave'], 'python, django')
+
+
+class TriagemCandidaturaTests(SimpleTestCase):
+    def test_extrai_palavras_chave_dos_requisitos_da_vaga(self):
+        vaga = Vaga(descricao='Requisitos minimos: Python, Django e SQL.')
+
+        self.assertEqual(extract_requirement_keywords(vaga), ['python', 'django', 'sql'])
+
+    def test_triagem_aprova_quando_curriculo_tem_keywords(self):
+        candidato = Candidato(cpf_candidato='12345678901', curriculo='curriculos/ana.docx')
+        vaga = Vaga(descricao='Python Django SQL')
+
+        with patch(
+            'apps.candidato_vaga.services.triagem_candidatura.extract_curriculo_text',
+            return_value='Experiencia com Python, Django e SQL.',
+        ):
+            result = analisar_candidatura(candidato, vaga)
+
+        self.assertTrue(result.aprovado)
+        self.assertEqual(result.palavras_faltantes, [])
+
+    def test_triagem_reprova_quando_curriculo_nao_tem_keyword(self):
+        candidato = Candidato(cpf_candidato='12345678901', curriculo='curriculos/ana.docx')
+        vaga = Vaga(descricao='Python Django SQL')
+
+        with patch(
+            'apps.candidato_vaga.services.triagem_candidatura.extract_curriculo_text',
+            return_value='Experiencia com Python e SQL.',
+        ):
+            result = analisar_candidatura(candidato, vaga)
+
+        self.assertFalse(result.aprovado)
+        self.assertEqual(result.palavras_faltantes, ['django'])
+
+    def test_triagem_aprova_vaga_sem_requisitos_descritos(self):
+        result = analisar_candidatura(
+            Candidato(cpf_candidato='12345678901'),
+            Vaga(descricao=''),
+        )
+
+        self.assertTrue(result.aprovado)
+        self.assertEqual(result.palavras_chave, [])
+
+    def test_triagem_reprova_candidato_sem_curriculo(self):
+        result = analisar_candidatura(
+            Candidato(cpf_candidato='12345678901'),
+            Vaga(descricao='Python'),
+        )
+
+        self.assertFalse(result.aprovado)
+        self.assertEqual(result.palavras_faltantes, ['python'])
+
 
 class CandidaturaCreateSerializerTests(SimpleTestCase):
     def test_candidatura_duplicada_e_rejeitada(self):
@@ -298,6 +385,31 @@ class CandidaturaCreateSerializerTests(SimpleTestCase):
                         serializer.validate({'id_vaga': Vaga(id_vaga=1, status=status_vaga)})
 
                     self.assertIn('id_vaga', context.exception.detail)
+
+    def test_create_salva_triagem_e_status_andamento(self):
+        candidato = Candidato(cpf_candidato='12345678901')
+        vaga = Vaga(id_vaga=1, status=Vaga.STATUS_ABERTA)
+        serializer = CandidaturaCreateSerializer(context={'candidato': candidato})
+        triagem = TriagemCandidaturaResult(
+            aprovado=True,
+            motivo='aprovado',
+            palavras_chave=['python', 'django'],
+            palavras_encontradas=['python', 'django'],
+            palavras_faltantes=[],
+        )
+
+        with patch('apps.candidato_vaga.api.serializers.analisar_candidatura', return_value=triagem):
+            with patch('apps.candidato_vaga.api.serializers.CandidatoVaga.objects.create') as create_mock:
+                serializer.create({'id_vaga': vaga})
+
+        create_mock.assert_called_once_with(
+            cpf_candidato=candidato,
+            id_vaga=vaga,
+            status_processo='andamento',
+            triagem_automatica_aprovada=True,
+            triagem_automatica_motivo='aprovado',
+            triagem_automatica_palavras_chave='python, django',
+        )
 
 
 class CandidatoVagaViewSetTests(SimpleTestCase):
@@ -430,6 +542,52 @@ class CandidatoVagaViewSetTests(SimpleTestCase):
         self.assertEqual(response.data['candidaturas_vagas_fechadas_por_status'], {'finalizado': 2})
         self.assertEqual(response.data['candidaturas_vagas_visiveis_por_status'], {'triagem': 3})
 
+    def test_rh_candidatos_lista_apenas_aprovados_pela_triagem(self):
+        user = SimpleNamespace(is_authenticated=True, is_staff=True, is_superuser=False)
+        approved_queryset = Mock()
+        ordered_queryset = Mock()
+        relation_queryset = Mock()
+        relation_queryset.filter.return_value = approved_queryset
+        approved_queryset.order_by.return_value = ordered_queryset
+        vaga = SimpleNamespace(
+            candidatovaga_set=SimpleNamespace(all=Mock(return_value=relation_queryset)),
+        )
+        viewset = VagaViewSet()
+        viewset.request = SimpleNamespace(user=user)
+        viewset.get_object = Mock(return_value=vaga)
+        viewset.paginated_serializer_response = Mock(return_value='response')
+
+        response = viewset.rh_candidatos(SimpleNamespace())
+
+        relation_queryset.filter.assert_called_once_with(triagem_automatica_aprovada=True)
+        approved_queryset.order_by.assert_called_once_with('cpf_candidato')
+        viewset.paginated_serializer_response.assert_called_once_with(
+            ordered_queryset,
+            CandidatoVagaRHReadSerializer,
+        )
+        self.assertEqual(response, 'response')
+
+    def test_rh_processos_expoe_serializer_com_triagem(self):
+        user = SimpleNamespace(is_authenticated=True, is_staff=True, is_superuser=False)
+        ordered_queryset = Mock()
+        relation_queryset = Mock()
+        relation_queryset.order_by.return_value = ordered_queryset
+        vaga = SimpleNamespace(
+            candidatovaga_set=SimpleNamespace(all=Mock(return_value=relation_queryset)),
+        )
+        viewset = VagaViewSet()
+        viewset.request = SimpleNamespace(user=user)
+        viewset.get_object = Mock(return_value=vaga)
+        viewset.paginated_serializer_response = Mock(return_value='response')
+
+        response = viewset.rh_processos(SimpleNamespace())
+
+        viewset.paginated_serializer_response.assert_called_once_with(
+            ordered_queryset,
+            CandidatoVagaRHReadSerializer,
+        )
+        self.assertEqual(response, 'response')
+
 
 class VagaStatusMigrationTests(SimpleTestCase):
     def test_migration_0003_modela_status_com_default_constraint_e_view(self):
@@ -460,6 +618,28 @@ class CandidatoCurriculoMigrationTests(SimpleTestCase):
         self.assertEqual(
             migration_module.Migration.dependencies,
             [('candidato_vaga', '0003_add_vaga_status')],
+        )
+
+
+class CandidatoTriagemMigrationTests(SimpleTestCase):
+    def test_migration_0005_modela_campos_de_triagem(self):
+        migration_module = importlib.import_module('apps.candidato_vaga.migrations.0005_add_candidatura_triagem')
+        operation = migration_module.Migration.operations[0]
+        sql = operation.database_operations[0].sql
+        field_names = [field.name for field in operation.state_operations]
+
+        self.assertIn('triagem_automatica_aprovada boolean', sql)
+        self.assertIn('triagem_automatica_motivo text', sql)
+        self.assertIn('triagem_automatica_palavras_chave text', sql)
+        self.assertIn('cv.triagem_automatica_aprovada', sql)
+        self.assertEqual(field_names, [
+            'triagem_automatica_aprovada',
+            'triagem_automatica_motivo',
+            'triagem_automatica_palavras_chave',
+        ])
+        self.assertEqual(
+            migration_module.Migration.dependencies,
+            [('candidato_vaga', '0004_alter_candidato_curriculo_file')],
         )
 
 
