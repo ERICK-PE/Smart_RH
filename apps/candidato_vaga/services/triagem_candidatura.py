@@ -17,6 +17,13 @@ STOPWORDS = {
     'requisitos', 'sobre', 'ter', 'vaga',
 }
 MAX_KEYWORDS = 30
+TRIAGEM_CLASSIFICACAO_APROVADO = 'aprovado'
+TRIAGEM_CLASSIFICACAO_PENDENTE = 'pendente_revisao_rh'
+TRIAGEM_CLASSIFICACAO_REPROVADO_TECNICO = 'reprovado_tecnico'
+TRIAGEM_REVISAO_CLASSIFICACOES = {
+    TRIAGEM_CLASSIFICACAO_PENDENTE,
+    TRIAGEM_CLASSIFICACAO_REPROVADO_TECNICO,
+}
 
 
 @dataclass(frozen=True)
@@ -27,6 +34,8 @@ class TriagemCandidaturaResult:
     palavras_chave: list[str]
     palavras_encontradas: list[str]
     palavras_faltantes: list[str]
+    pontuacao: int | None
+    classificacao: str
 
 
 def normalize_text(value: str) -> str:
@@ -38,7 +47,7 @@ def normalize_text(value: str) -> str:
 
 def extract_requirement_keywords(vaga) -> list[str]:
     """Extrai palavras-chave dos requisitos minimos descritos na vaga."""
-    text = normalize_text(getattr(vaga, 'descricao', '') or '')
+    text = normalize_text(getattr(vaga, 'requisitos', '') or '')
     keywords = []
     for token in re.findall(r'[a-z0-9][a-z0-9+#.-]{2,}', text):
         token = token.strip('.-')
@@ -68,11 +77,13 @@ def analisar_candidatura(candidato, vaga) -> TriagemCandidaturaResult:
     keywords = extract_requirement_keywords(vaga)
     if not keywords:
         return TriagemCandidaturaResult(
-            aprovado=True,
-            motivo='Vaga sem requisitos minimos descritos para triagem automatica.',
+            aprovado=False,
+            motivo='Vaga sem requisitos minimos cadastrados; revisar manualmente no RH.',
             palavras_chave=[],
             palavras_encontradas=[],
             palavras_faltantes=[],
+            pontuacao=None,
+            classificacao=TRIAGEM_CLASSIFICACAO_PENDENTE,
         )
 
     try:
@@ -84,16 +95,25 @@ def analisar_candidatura(candidato, vaga) -> TriagemCandidaturaResult:
             palavras_chave=keywords,
             palavras_encontradas=[],
             palavras_faltantes=keywords,
+            pontuacao=None,
+            classificacao=TRIAGEM_CLASSIFICACAO_PENDENTE,
         )
 
     found = [keyword for keyword in keywords if keyword in curriculo_text]
     missing = [keyword for keyword in keywords if keyword not in curriculo_text]
-    approved = not missing
-    reason = (
-        'Curriculo contem as palavras-chave dos requisitos minimos.'
-        if approved
-        else 'Curriculo nao contem todas as palavras-chave dos requisitos minimos.'
-    )
+    score = round((len(found) / len(keywords)) * 100)
+    if score >= 70:
+        classification = TRIAGEM_CLASSIFICACAO_APROVADO
+        approved = True
+        reason = f'Pontuacao {score}%: aprovado na triagem automatica.'
+    elif score >= 35:
+        classification = TRIAGEM_CLASSIFICACAO_PENDENTE
+        approved = False
+        reason = f'Pontuacao {score}%: pendente para revisao RH.'
+    else:
+        classification = TRIAGEM_CLASSIFICACAO_REPROVADO_TECNICO
+        approved = False
+        reason = f'Pontuacao {score}%: reprovado tecnico para revisao RH.'
 
     return TriagemCandidaturaResult(
         aprovado=approved,
@@ -101,4 +121,6 @@ def analisar_candidatura(candidato, vaga) -> TriagemCandidaturaResult:
         palavras_chave=keywords,
         palavras_encontradas=found,
         palavras_faltantes=missing,
+        pontuacao=score,
+        classificacao=classification,
     )

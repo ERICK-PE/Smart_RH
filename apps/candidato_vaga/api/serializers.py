@@ -375,6 +375,7 @@ class VagaReadSerializer(serializers.ModelSerializer):
             'id_vaga',
             'titulo',
             'descricao',
+            'requisitos',
             'data_publicacao',
             'status',
             'fk_id_setor',
@@ -397,6 +398,7 @@ class VagaWriteSerializer(serializers.ModelSerializer):
             'id_vaga',
             'titulo',
             'descricao',
+            'requisitos',
             'data_publicacao',
             'status',
             'fk_id_setor',
@@ -426,7 +428,7 @@ class VagaWriteSerializer(serializers.ModelSerializer):
         return status_vaga
 
     def validate(self, attrs):
-        """Valida data de publicacao e normaliza descricao da vaga."""
+        """Valida data de publicacao e normaliza textos da vaga."""
         data_publicacao = attrs.get('data_publicacao')
 
         if data_publicacao and data_publicacao > timezone.localdate():
@@ -436,6 +438,8 @@ class VagaWriteSerializer(serializers.ModelSerializer):
 
         if 'descricao' in attrs:
             attrs['descricao'] = normalize_optional_text(attrs.get('descricao'))
+        if 'requisitos' in attrs:
+            attrs['requisitos'] = normalize_optional_text(attrs.get('requisitos'))
 
         return attrs
 
@@ -447,6 +451,7 @@ class VagaComCandidatosReadSerializer(serializers.ModelSerializer):
             'id_vaga',
             'titulo',
             'descricao',
+            'requisitos',
             'data_publicacao',
             'status',
             'fk_id_setor',
@@ -486,6 +491,8 @@ class CandidatoVagaRHReadSerializer(CandidatoVagaReadSerializer):
             'triagem_automatica_aprovada',
             'triagem_automatica_motivo',
             'triagem_automatica_palavras_chave',
+            'triagem_automatica_pontuacao',
+            'triagem_automatica_classificacao',
         ]
         read_only_fields = fields
 
@@ -568,6 +575,8 @@ class CandidaturaCreateSerializer(serializers.Serializer):
             triagem_automatica_aprovada=triagem.aprovado,
             triagem_automatica_motivo=triagem.motivo,
             triagem_automatica_palavras_chave=', '.join(triagem.palavras_chave),
+            triagem_automatica_pontuacao=triagem.pontuacao,
+            triagem_automatica_classificacao=triagem.classificacao,
         )
 
 

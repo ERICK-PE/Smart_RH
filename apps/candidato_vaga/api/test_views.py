@@ -76,6 +76,7 @@ def vaga_payload(vaga):
         'id_vaga': vaga.id_vaga,
         'titulo': vaga.titulo,
         'descricao': vaga.descricao,
+        'requisitos': vaga.requisitos,
         'data_publicacao': vaga.data_publicacao.isoformat() if vaga.data_publicacao else None,
         'status': vaga.status,
         'fk_id_setor': vaga.fk_id_setor_id,
@@ -97,6 +98,8 @@ def candidatura_payload(candidatura):
         'triagem_automatica_aprovada': candidatura.triagem_automatica_aprovada,
         'triagem_automatica_motivo': candidatura.triagem_automatica_motivo,
         'triagem_automatica_palavras_chave': candidatura.triagem_automatica_palavras_chave,
+        'triagem_automatica_pontuacao': candidatura.triagem_automatica_pontuacao,
+        'triagem_automatica_classificacao': candidatura.triagem_automatica_classificacao,
     }
 
 

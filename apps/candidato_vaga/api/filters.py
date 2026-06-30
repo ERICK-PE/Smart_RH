@@ -22,6 +22,7 @@ class CandidatoFilter(filters.FilterSet):
 
 class VagaFilter(filters.FilterSet):
     titulo = filters.CharFilter(field_name='titulo', lookup_expr='icontains')
+    requisitos = filters.CharFilter(field_name='requisitos', lookup_expr='icontains')
     status = filters.ChoiceFilter(field_name='status', choices=Vaga.STATUS_CHOICES)
     setor = filters.NumberFilter(field_name='fk_id_setor')
     setor_nome = filters.CharFilter(field_name='fk_id_setor__nome', lookup_expr='icontains')
@@ -35,6 +36,7 @@ class VagaFilter(filters.FilterSet):
         fields = [
             'id_vaga',
             'titulo',
+            'requisitos',
             'status',
             'setor',
             'setor_nome',
@@ -45,8 +47,12 @@ class VagaFilter(filters.FilterSet):
         ]
 
     def filter_texto(self, queryset, name, value):
-        """Busca texto em titulo ou descricao da vaga."""
-        return queryset.filter(Q(titulo__icontains=value) | Q(descricao__icontains=value))
+        """Busca texto em titulo, descricao ou requisitos da vaga."""
+        return queryset.filter(
+            Q(titulo__icontains=value)
+            | Q(descricao__icontains=value)
+            | Q(requisitos__icontains=value)
+        )
 
     def filter_com_candidaturas(self, queryset, name, value):
         """Filtra vagas com ou sem candidaturas vinculadas."""
@@ -57,7 +63,6 @@ class CandidatoVagaFilter(filters.FilterSet):
     candidato = filters.CharFilter(field_name='cpf_candidato')
     vaga = filters.NumberFilter(field_name='id_vaga')
     status_processo = filters.CharFilter(field_name='status_processo', lookup_expr='icontains')
-    triagem_automatica_aprovada = filters.BooleanFilter(field_name='triagem_automatica_aprovada')
     candidato_nome = filters.CharFilter(field_name='cpf_candidato__nome', lookup_expr='icontains')
     vaga_titulo = filters.CharFilter(field_name='id_vaga__titulo', lookup_expr='icontains')
 
@@ -67,7 +72,30 @@ class CandidatoVagaFilter(filters.FilterSet):
             'candidato',
             'vaga',
             'status_processo',
+            'candidato_nome',
+            'vaga_titulo',
+        ]
+
+
+class CandidatoVagaRHFilter(CandidatoVagaFilter):
+    triagem_automatica_aprovada = filters.BooleanFilter(field_name='triagem_automatica_aprovada')
+    triagem_automatica_classificacao = filters.CharFilter(
+        field_name='triagem_automatica_classificacao',
+        lookup_expr='iexact',
+    )
+    triagem_pontuacao_min = filters.NumberFilter(field_name='triagem_automatica_pontuacao', lookup_expr='gte')
+    triagem_pontuacao_max = filters.NumberFilter(field_name='triagem_automatica_pontuacao', lookup_expr='lte')
+
+    class Meta:
+        model = CandidatoVaga
+        fields = [
+            'candidato',
+            'vaga',
+            'status_processo',
             'triagem_automatica_aprovada',
+            'triagem_automatica_classificacao',
+            'triagem_pontuacao_min',
+            'triagem_pontuacao_max',
             'candidato_nome',
             'vaga_titulo',
         ]

@@ -232,6 +232,11 @@
                 <textarea id="job_description"></textarea>
             </label>
 
+            <label class="span-3">
+                Requisitos
+                <textarea id="job_requirements"></textarea>
+            </label>
+
             <div class="actions">
                 <button type="submit" id="job-submit">Cadastrar vaga</button>
                 <button type="button" class="secondary" id="job-clear">Limpar</button>
@@ -298,6 +303,7 @@
                         <th>ID</th>
                         <th>Titulo</th>
                         <th>Descricao</th>
+                        <th>Requisitos</th>
                         <th>Publicacao</th>
                         <th>Status</th>
                         <th>Setor</th>
@@ -322,6 +328,8 @@
                         <th>Status vaga</th>
                         <th>Status</th>
                         <th>Triagem</th>
+                        <th>Pontuacao</th>
+                        <th>Classificacao</th>
                         <th>Motivo triagem</th>
                         <th>Acoes</th>
                     </tr>
@@ -434,6 +442,7 @@ function jobPayload() {
     return {
         titulo: document.querySelector('#job_title').value || null,
         descricao: document.querySelector('#job_description').value || null,
+        requisitos: document.querySelector('#job_requirements').value || null,
         data_publicacao: document.querySelector('#job_date').value || null,
         status: document.querySelector('#job_status').value || 'aberta',
         fk_id_setor: document.querySelector('#job_sector').value || null,
@@ -498,6 +507,7 @@ function editJob(job) {
     document.querySelector('#job_id').value = job.id_vaga;
     document.querySelector('#job_title').value = job.titulo || '';
     document.querySelector('#job_description').value = job.descricao || '';
+    document.querySelector('#job_requirements').value = job.requisitos || '';
     document.querySelector('#job_date').value = job.data_publicacao || '';
     document.querySelector('#job_status').value = job.status || 'aberta';
     document.querySelector('#job_sector').value = job.fk_id_setor || '';
@@ -547,7 +557,7 @@ function renderJobs() {
     const body = document.querySelector('#job-body');
     body.innerHTML = '';
     if (!jobs.length) {
-        body.innerHTML = '<tr><td colspan="7">Nenhuma vaga encontrada.</td></tr>';
+        body.innerHTML = '<tr><td colspan="8">Nenhuma vaga encontrada.</td></tr>';
         return;
     }
     jobs.forEach((job) => {
@@ -555,6 +565,7 @@ function renderJobs() {
         appendCell(row, job.id_vaga);
         appendCell(row, job.titulo);
         appendCell(row, job.descricao);
+        appendCell(row, job.requisitos);
         appendCell(row, job.data_publicacao);
         appendCell(row, job.status);
         appendCell(row, job.setor_nome || job.fk_id_setor);
@@ -571,7 +582,7 @@ function renderApplications() {
     const body = document.querySelector('#application-body');
     body.innerHTML = '';
     if (!applications.length) {
-        body.innerHTML = '<tr><td colspan="7">Nenhuma candidatura encontrada.</td></tr>';
+        body.innerHTML = '<tr><td colspan="11">Nenhuma candidatura encontrada.</td></tr>';
         return;
     }
     applications.forEach((application) => {
@@ -583,6 +594,8 @@ function renderApplications() {
         appendCell(row, application.status_vaga);
         appendCell(row, application.status_processo);
         appendCell(row, application.triagem_automatica_aprovada === null ? '' : application.triagem_automatica_aprovada ? 'aprovada' : 'reprovada');
+        appendCell(row, application.triagem_automatica_pontuacao === null ? '' : application.triagem_automatica_pontuacao + '%');
+        appendCell(row, application.triagem_automatica_classificacao);
         appendCell(row, application.triagem_automatica_motivo);
         const actions = document.createElement('td');
         actions.appendChild(makeButton('Editar', 'secondary', () => editApplication(application)));
