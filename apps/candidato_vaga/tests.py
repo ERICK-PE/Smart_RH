@@ -15,6 +15,7 @@ from apps.candidato_vaga.api.serializers import (
     CandidaturaCreateSerializer,
     CandidatoRegistrationSerializer,
     CandidatoReadSerializer,
+    CandidatoVagaEmailSerializer,
     CandidatoVagaRHReadSerializer,
     CandidatoVagaReadSerializer,
     CandidatoVagaWriteSerializer,
@@ -343,6 +344,11 @@ class TriagemCandidaturaTests(SimpleTestCase):
 
         self.assertEqual(extract_requirement_keywords(vaga), ['python', 'django', 'sql'])
 
+    def test_extrai_requisitos_curtos_importantes_da_vaga(self):
+        vaga = Vaga(requisitos='C#, C++, BI, UI e UX.')
+
+        self.assertEqual(extract_requirement_keywords(vaga), ['c#', 'c++', 'bi', 'ui', 'ux'])
+
     def test_triagem_aprova_quando_curriculo_tem_keywords(self):
         candidato = Candidato(cpf_candidato='12345678901', curriculo='curriculos/ana.docx')
         vaga = Vaga(requisitos='Python Django SQL')
@@ -357,6 +363,37 @@ class TriagemCandidaturaTests(SimpleTestCase):
         self.assertEqual(result.pontuacao, 100)
         self.assertEqual(result.classificacao, TRIAGEM_CLASSIFICACAO_APROVADO)
         self.assertEqual(result.palavras_faltantes, [])
+
+    def test_triagem_aprova_requisitos_curtos_importantes(self):
+        candidato = Candidato(cpf_candidato='12345678901', curriculo='curriculos/ana.docx')
+        vaga = Vaga(requisitos='C# C++ BI UI UX')
+
+        with patch(
+            'apps.candidato_vaga.services.triagem_candidatura.extract_curriculo_text',
+            return_value='Experiencia com C#, C++, BI, UI e UX.',
+        ):
+            result = analisar_candidatura(candidato, vaga)
+
+        self.assertTrue(result.aprovado)
+        self.assertEqual(result.pontuacao, 100)
+        self.assertEqual(result.palavras_encontradas, ['c#', 'c++', 'bi', 'ui', 'ux'])
+        self.assertEqual(result.palavras_faltantes, [])
+
+    def test_triagem_nao_considera_java_dentro_de_javascript(self):
+        candidato = Candidato(cpf_candidato='12345678901', curriculo='curriculos/ana.docx')
+        vaga = Vaga(requisitos='Java SQL')
+
+        with patch(
+            'apps.candidato_vaga.services.triagem_candidatura.extract_curriculo_text',
+            return_value='Experiencia com JavaScript e SQL.',
+        ):
+            result = analisar_candidatura(candidato, vaga)
+
+        self.assertFalse(result.aprovado)
+        self.assertEqual(result.pontuacao, 50)
+        self.assertEqual(result.classificacao, TRIAGEM_CLASSIFICACAO_PENDENTE)
+        self.assertEqual(result.palavras_encontradas, ['sql'])
+        self.assertEqual(result.palavras_faltantes, ['java'])
 
     def test_triagem_pendente_quando_curriculo_tem_pontuacao_intermediaria(self):
         candidato = Candidato(cpf_candidato='12345678901', curriculo='curriculos/ana.docx')
@@ -493,6 +530,11 @@ class CandidatoVagaViewSetTests(SimpleTestCase):
         match = resolve('/api/candidato/vagas/1/rh/triagem-revisao/')
 
         self.assertEqual(match.url_name, 'vaga-rh-triagem-revisao')
+
+    def test_rota_envio_email_candidatos_existe(self):
+        match = resolve('/api/candidato/vagas/1/rh/enviar-email-candidatos/')
+
+        self.assertEqual(match.url_name, 'vaga-rh-enviar-email-candidatos')
 
     def test_rota_registro_publico_de_candidato_existe(self):
         match = resolve('/api/candidato/candidatos/registrar/')
@@ -658,7 +700,7 @@ class CandidatoVagaViewSetTests(SimpleTestCase):
         response = viewset.rh_candidatos(SimpleNamespace())
 
         relation_queryset.filter.assert_called_once_with(triagem_automatica_aprovada=True)
-        approved_queryset.order_by.assert_called_once_with('cpf_candidato')
+        approved_queryset.order_by.assert_called_once_with('-triagem_automatica_pontuacao', 'cpf_candidato')
         viewset.paginated_serializer_response.assert_called_once_with(
             ordered_queryset,
             CandidatoVagaRHReadSerializer,
@@ -715,6 +757,75 @@ class CandidatoVagaViewSetTests(SimpleTestCase):
             CandidatoVagaRHReadSerializer,
         )
         self.assertEqual(response, 'response')
+
+    def test_email_serializer_exige_cpfs_para_envio_selecionado(self):
+        serializer = CandidatoVagaEmailSerializer(data={
+            'tipo_destinatarios': CandidatoVagaEmailSerializer.TIPO_SELECIONADOS,
+            'assunto': 'Processo seletivo',
+            'mensagem': 'Mensagem segura',
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('cpf_candidatos', serializer.errors)
+
+    def test_rh_enviar_email_candidatos_envia_individualmente(self):
+        user = SimpleNamespace(is_authenticated=True, is_staff=True, is_superuser=False)
+        candidaturas = [
+            SimpleNamespace(cpf_candidato=SimpleNamespace(email='ana@example.com')),
+            SimpleNamespace(cpf_candidato=SimpleNamespace(email='bia@example.com')),
+            SimpleNamespace(cpf_candidato=SimpleNamespace(email='')),
+        ]
+        viewset = VagaViewSet()
+        viewset.request = SimpleNamespace(user=user)
+        viewset.get_object = Mock(return_value=Vaga(id_vaga=1))
+        viewset.get_candidaturas_para_email = Mock(return_value=candidaturas)
+
+        with patch('apps.candidato_vaga.api.views.send_mail') as send_mail_mock:
+            response = viewset.rh_enviar_email_candidatos(
+                SimpleNamespace(data={
+                    'tipo_destinatarios': CandidatoVagaEmailSerializer.TIPO_APROVADOS,
+                    'assunto': 'Processo seletivo',
+                    'mensagem': 'Voce segue no processo seletivo.',
+                })
+            )
+
+        self.assertEqual(send_mail_mock.call_count, 2)
+        send_mail_mock.assert_any_call(
+            'Processo seletivo',
+            'Voce segue no processo seletivo.',
+            None,
+            ['ana@example.com'],
+            fail_silently=False,
+        )
+        send_mail_mock.assert_any_call(
+            'Processo seletivo',
+            'Voce segue no processo seletivo.',
+            None,
+            ['bia@example.com'],
+            fail_silently=False,
+        )
+        self.assertEqual(response.data['total_candidaturas'], 3)
+        self.assertEqual(response.data['total_enviados'], 2)
+        self.assertEqual(response.data['total_sem_email'], 1)
+
+    def test_get_candidaturas_para_email_filtra_por_tipo_sem_email_externo(self):
+        base_queryset = Mock()
+        ordered_queryset = Mock()
+        ordered_queryset.filter.return_value = ['candidatura']
+        base_queryset.select_related.return_value.order_by.return_value = ordered_queryset
+        vaga = SimpleNamespace(
+            candidatovaga_set=SimpleNamespace(all=Mock(return_value=base_queryset)),
+        )
+        viewset = VagaViewSet()
+
+        result = viewset.get_candidaturas_para_email(vaga, {
+            'tipo_destinatarios': CandidatoVagaEmailSerializer.TIPO_SELECIONADOS,
+            'cpf_candidatos': ['12345678901'],
+        })
+
+        base_queryset.select_related.assert_called_once_with('cpf_candidato')
+        ordered_queryset.filter.assert_called_once_with(cpf_candidato_id__in=['12345678901'])
+        self.assertEqual(result, ['candidatura'])
 
 
 class VagaStatusMigrationTests(SimpleTestCase):

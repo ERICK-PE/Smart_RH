@@ -44,6 +44,14 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         )
         self.assertEqual(settings.SIMPLE_JWT['AUTH_HEADER_TYPES'], ('Bearer',))
 
+    def test_email_settings_configurados_por_variaveis_de_ambiente(self):
+        self.assertTrue(settings.EMAIL_BACKEND)
+        self.assertIsInstance(settings.EMAIL_PORT, int)
+        self.assertIsInstance(settings.EMAIL_USE_TLS, bool)
+        self.assertIsInstance(settings.EMAIL_USE_SSL, bool)
+        self.assertTrue(settings.DEFAULT_FROM_EMAIL)
+        self.assertEqual(settings.SERVER_EMAIL, settings.DEFAULT_FROM_EMAIL)
+
     def test_rotas_jwt_resolvem_sob_api_auth(self):
         self.assertIs(resolve('/api/auth/token/').func.view_class, SmartRHTokenObtainPairView)
         self.assertIs(resolve('/api/auth/token/refresh/').func.view_class, TokenRefreshView)

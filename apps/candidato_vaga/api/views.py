@@ -1,4 +1,5 @@
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
@@ -13,6 +14,7 @@ from apps.candidato_vaga.api.filters import CandidatoFilter, CandidatoVagaFilter
 from apps.candidato_vaga.api.serializers import (
     CandidaturaCreateSerializer,
     CandidatoRegistrationSerializer,
+    CandidatoVagaEmailSerializer,
     CandidatoReadSerializer,
     CandidatoWriteSerializer,
     CandidatoVagaRHReadSerializer,
@@ -22,7 +24,10 @@ from apps.candidato_vaga.api.serializers import (
     VagaWriteSerializer,
 )
 from apps.candidato_vaga.models import Candidato, CandidatoVaga, Vaga
-from apps.candidato_vaga.services.triagem_candidatura import TRIAGEM_REVISAO_CLASSIFICACOES
+from apps.candidato_vaga.services.triagem_candidatura import (
+    TRIAGEM_CLASSIFICACAO_REPROVADO_TECNICO,
+    TRIAGEM_REVISAO_CLASSIFICACOES,
+)
 
 
 class CandidatoAccessMixin(RHAdminAccessMixin):
@@ -370,7 +375,7 @@ class VagaViewSet(
             vaga.candidatovaga_set
             .all()
             .filter(triagem_automatica_aprovada=True)
-            .order_by('cpf_candidato'),
+            .order_by('-triagem_automatica_pontuacao', 'cpf_candidato'),
             CandidatoVagaRHReadSerializer,
         )
 
@@ -396,6 +401,61 @@ class VagaViewSet(
             .order_by('triagem_automatica_pontuacao', 'cpf_candidato'),
             CandidatoVagaRHReadSerializer,
         )
+
+    @action(detail=True, methods=['post'], url_path='rh/enviar-email-candidatos')
+    def rh_enviar_email_candidatos(self, request, pk=None):
+        """Envia e-mail individual para candidatos da vaga conforme selecao RH."""
+        self.assert_rh_admin_access()
+        vaga = self.get_object()
+        serializer = CandidatoVagaEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        candidaturas = self.get_candidaturas_para_email(vaga, data)
+
+        enviados = 0
+        sem_email = 0
+        for candidatura in candidaturas:
+            email = getattr(candidatura.cpf_candidato, 'email', None)
+            if not email:
+                sem_email += 1
+                continue
+
+            send_mail(
+                data['assunto'],
+                data['mensagem'],
+                None,
+                [email],
+                fail_silently=False,
+            )
+            enviados += 1
+
+        return Response({
+            'tipo_destinatarios': data['tipo_destinatarios'],
+            'total_candidaturas': len(candidaturas),
+            'total_enviados': enviados,
+            'total_sem_email': sem_email,
+        })
+
+    def get_candidaturas_para_email(self, vaga, data):
+        """Resolve candidatos-alvo sem aceitar e-mails externos ao processo."""
+        candidaturas = (
+            vaga.candidatovaga_set
+            .all()
+            .select_related('cpf_candidato')
+            .order_by('cpf_candidato')
+        )
+        tipo_destinatarios = data['tipo_destinatarios']
+
+        if tipo_destinatarios == CandidatoVagaEmailSerializer.TIPO_APROVADOS:
+            candidaturas = candidaturas.filter(triagem_automatica_aprovada=True)
+        elif tipo_destinatarios == CandidatoVagaEmailSerializer.TIPO_REPROVADOS:
+            candidaturas = candidaturas.filter(
+                triagem_automatica_classificacao=TRIAGEM_CLASSIFICACAO_REPROVADO_TECNICO,
+            )
+        else:
+            candidaturas = candidaturas.filter(cpf_candidato_id__in=data['cpf_candidatos'])
+
+        return list(candidaturas)
 
     @action(
         detail=True,

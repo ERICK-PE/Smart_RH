@@ -93,7 +93,7 @@ def agente_test_upload(request):
 @debug_only
 @require_http_methods(['POST'])
 def agente_test_perguntar(request):
-    """Executa pergunta debug lendo documentos atuais em imp_doc."""
+    """Executa pergunta debug usando documentos ativos cadastrados."""
     data = parse_json_body(request)
     if data is None:
         return JsonResponse({'detail': 'JSON invalido.'}, status=400)
@@ -104,7 +104,7 @@ def agente_test_perguntar(request):
 
     documentos = load_important_document_sources()
     if not documentos:
-        return JsonResponse({'detail': 'Nenhum documento importante legivel encontrado em imp_doc.'}, status=404)
+        return JsonResponse({'detail': 'Nenhum documento ativo e legivel cadastrado para o agente.'}, status=404)
 
     try:
         resposta = answer_question_with_openai(pergunta, documentos)

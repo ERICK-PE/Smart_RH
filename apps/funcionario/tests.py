@@ -26,6 +26,7 @@ from apps.funcionario.api.views import FuncionarioAgenteDocumentoViewSet, Funcio
 from apps.funcionario.models import Funcionario, FuncionarioAgenteDocumento, funcionario_agente_documento_upload_path
 from apps.funcionario.services.agente_documentos import (
     answer_question_with_openai,
+    delete_important_document_file,
     load_important_document_sources,
     save_important_document_upload,
     validate_document_file,
@@ -387,7 +388,7 @@ class FuncionarioAgenteDocumentoTests(SimpleTestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn('arquivo', serializer.errors)
 
-    def test_load_important_document_sources_le_docx_da_pasta_imp_doc(self):
+    def test_load_important_document_sources_usa_somente_cadastro_ativo(self):
         with TemporaryDirectory() as tmpdir:
             docs_dir = Path(tmpdir) / 'imp_doc'
             docs_dir.mkdir()
@@ -395,11 +396,69 @@ class FuncionarioAgenteDocumentoTests(SimpleTestCase):
             (docs_dir / 'Politica RH Interna.DOCX').write_bytes(upload.read())
 
             with override_settings(BASE_DIR=Path(tmpdir)):
-                documentos = load_important_document_sources()
+                documentos = load_important_document_sources([
+                    FuncionarioAgenteDocumento(
+                        id_documento=1,
+                        titulo='Politica ativa',
+                        conteudo_extraido='Ferias devem ser solicitadas com 30 dias de antecedencia.',
+                        arquivo='imp_doc/politica-ativa.docx',
+                        ativo=True,
+                    ),
+                    FuncionarioAgenteDocumento(
+                        id_documento=2,
+                        titulo='Politica inativa',
+                        conteudo_extraido='Conteudo inativo nao deve ser usado.',
+                        arquivo='imp_doc/politica-inativa.docx',
+                        ativo=False,
+                    ),
+                ])
 
         self.assertEqual(len(documentos), 1)
-        self.assertEqual(documentos[0].titulo, 'Politica RH Interna.DOCX')
+        self.assertEqual(documentos[0].id_documento, 1)
+        self.assertEqual(documentos[0].titulo, 'Politica ativa')
         self.assertIn('Ferias devem ser solicitadas', documentos[0].conteudo_extraido)
+        self.assertNotIn('Politica RH Interna.DOCX', [documento.titulo for documento in documentos])
+
+    def test_update_documento_remove_arquivo_antigo_quando_upload_troca(self):
+        with TemporaryDirectory() as tmpdir:
+            with override_settings(BASE_DIR=Path(tmpdir)):
+                old_path = Path(tmpdir) / 'imp_doc' / 'antigo.docx'
+                old_path.parent.mkdir()
+                old_path.write_bytes(b'antigo')
+                documento = FuncionarioAgenteDocumento(
+                    id_documento=1,
+                    titulo='Politica antiga',
+                    conteudo_extraido='Texto antigo',
+                    arquivo='imp_doc/antigo.docx',
+                    ativo=True,
+                )
+                documento.save = Mock()
+                upload = self.make_docx_file()
+                upload.name = 'novo.docx'
+                serializer = FuncionarioAgenteDocumentoWriteSerializer(
+                    documento,
+                    data={'titulo': 'Politica nova', 'arquivo': upload},
+                    partial=True,
+                )
+
+                self.assertTrue(serializer.is_valid(), serializer.errors)
+                serializer.save()
+
+                self.assertFalse(old_path.exists())
+                self.assertTrue((Path(tmpdir) / 'imp_doc' / 'novo.docx').exists())
+
+    def test_delete_important_document_file_remove_apenas_arquivo_em_imp_doc(self):
+        with TemporaryDirectory() as tmpdir:
+            with override_settings(BASE_DIR=Path(tmpdir)):
+                docs_dir = Path(tmpdir) / 'imp_doc'
+                docs_dir.mkdir()
+                target = docs_dir / 'politica.docx'
+                target.write_bytes(b'conteudo')
+
+                delete_important_document_file('imp_doc/politica.docx')
+                delete_important_document_file('../fora.docx')
+
+        self.assertFalse(target.exists())
 
     def test_agente_responde_usando_openai_com_contexto_dos_documentos(self):
         documento = FuncionarioAgenteDocumento(
@@ -464,7 +523,7 @@ class FuncionarioAgenteDocumentoAPITests(SimpleTestCase):
     def test_perguntar_retorna_resposta_com_fontes(self):
         documentos = [
             SimpleNamespace(
-                id_documento=None,
+                id_documento=1,
                 titulo='Politica de ferias',
                 conteudo_extraido='Ferias devem ser solicitadas com 30 dias de antecedencia.',
                 arquivo='imp_doc/politica.docx',
@@ -522,6 +581,27 @@ class FuncionarioAgenteDocumentoAPITests(SimpleTestCase):
             response = viewset.perguntar(request)
 
         self.assertEqual(response.data['resposta'], 'Resposta RH')
+
+    def test_perform_destroy_remove_arquivo_fisico_do_documento(self):
+        with TemporaryDirectory() as tmpdir:
+            with override_settings(BASE_DIR=Path(tmpdir)):
+                docs_dir = Path(tmpdir) / 'imp_doc'
+                docs_dir.mkdir()
+                target = docs_dir / 'politica.docx'
+                target.write_bytes(b'conteudo')
+                documento = FuncionarioAgenteDocumento(
+                    id_documento=1,
+                    titulo='Politica',
+                    conteudo_extraido='Texto',
+                    arquivo='imp_doc/politica.docx',
+                )
+                documento.delete = Mock()
+                viewset = FuncionarioAgenteDocumentoViewSet()
+
+                viewset.perform_destroy(documento)
+
+        documento.delete.assert_called_once()
+        self.assertFalse(target.exists())
 
 
 class FuncionarioAgenteDocumentoMigrationTests(SimpleTestCase):

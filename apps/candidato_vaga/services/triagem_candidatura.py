@@ -16,6 +16,8 @@ STOPWORDS = {
     'no', 'nos', 'o', 'os', 'ou', 'para', 'por', 'que', 'requisito',
     'requisitos', 'sobre', 'ter', 'vaga',
 }
+SHORT_REQUIREMENT_KEYWORDS = {'bi', 'c#', 'c++', 'ui', 'ux'}
+REQUIREMENT_TOKEN_RE = re.compile(r'[a-z0-9][a-z0-9+#.-]*')
 MAX_KEYWORDS = 30
 TRIAGEM_CLASSIFICACAO_APROVADO = 'aprovado'
 TRIAGEM_CLASSIFICACAO_PENDENTE = 'pendente_revisao_rh'
@@ -45,18 +47,30 @@ def normalize_text(value: str) -> str:
     return without_accents.lower()
 
 
+def normalize_requirement_token(token: str) -> str:
+    """Normaliza pontuacao externa sem remover sinais que fazem parte da tecnologia."""
+    return token.strip('.-')
+
+
 def extract_requirement_keywords(vaga) -> list[str]:
     """Extrai palavras-chave dos requisitos minimos descritos na vaga."""
     text = normalize_text(getattr(vaga, 'requisitos', '') or '')
     keywords = []
-    for token in re.findall(r'[a-z0-9][a-z0-9+#.-]{2,}', text):
-        token = token.strip('.-')
-        if len(token) < 3 or token in STOPWORDS or token in keywords:
+    for token in REQUIREMENT_TOKEN_RE.findall(text):
+        token = normalize_requirement_token(token)
+        is_short_allowed = token in SHORT_REQUIREMENT_KEYWORDS
+        if (len(token) < 3 and not is_short_allowed) or token in STOPWORDS or token in keywords:
             continue
         keywords.append(token)
         if len(keywords) >= MAX_KEYWORDS:
             break
     return keywords
+
+
+def keyword_matches_text(keyword: str, text: str) -> bool:
+    """Evita match por substring dentro de outra palavra, como java em javascript."""
+    pattern = rf'(?<![a-z0-9]){re.escape(keyword)}(?![a-z0-9])'
+    return re.search(pattern, text) is not None
 
 
 def extract_curriculo_text(candidato) -> str:
@@ -99,8 +113,8 @@ def analisar_candidatura(candidato, vaga) -> TriagemCandidaturaResult:
             classificacao=TRIAGEM_CLASSIFICACAO_PENDENTE,
         )
 
-    found = [keyword for keyword in keywords if keyword in curriculo_text]
-    missing = [keyword for keyword in keywords if keyword not in curriculo_text]
+    found = [keyword for keyword in keywords if keyword_matches_text(keyword, curriculo_text)]
+    missing = [keyword for keyword in keywords if not keyword_matches_text(keyword, curriculo_text)]
     score = round((len(found) / len(keywords)) * 100)
     if score >= 70:
         classification = TRIAGEM_CLASSIFICACAO_APROVADO

@@ -25,7 +25,11 @@ from apps.funcionario.api.serializers import (
     PlanoCarreiraWriteSerializer,
 )
 from apps.funcionario.models import Contrato, Funcionario, FuncionarioAgenteDocumento, PlanoCarreira
-from apps.funcionario.services.agente_documentos import answer_question_with_openai, load_important_document_sources
+from apps.funcionario.services.agente_documentos import (
+    answer_question_with_openai,
+    delete_important_document_file,
+    load_important_document_sources,
+)
 
 
 class FuncionarioViewSet(
@@ -436,9 +440,15 @@ class FuncionarioAgenteDocumentoViewSet(
         """Registra usuario RH/admin que enviou documento."""
         serializer.save(criado_por=self.request.user)
 
+    def perform_destroy(self, instance):
+        """Remove cadastro e arquivo fisico vinculado ao documento."""
+        arquivo = instance.arquivo.name
+        super().perform_destroy(instance)
+        delete_important_document_file(arquivo)
+
     @action(detail=False, methods=['post'], url_path='perguntar')
     def perguntar(self, request):
-        """Responde pergunta para integrante interno usando documentos em imp_doc."""
+        """Responde pergunta usando documentos ativos cadastrados pelo RH."""
         if not self.user_has_global_access():
             self.get_request_funcionario_id()
 
@@ -449,7 +459,7 @@ class FuncionarioAgenteDocumentoViewSet(
         documentos = load_important_document_sources()
         if not documentos:
             return Response(
-                {'detail': 'Nenhum documento importante legivel encontrado em imp_doc.'},
+                {'detail': 'Nenhum documento ativo e legivel cadastrado para o agente.'},
                 status=status.HTTP_404_NOT_FOUND,
             )
 

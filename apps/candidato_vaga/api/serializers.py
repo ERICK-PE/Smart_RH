@@ -497,6 +497,51 @@ class CandidatoVagaRHReadSerializer(CandidatoVagaReadSerializer):
         read_only_fields = fields
 
 
+class CandidatoVagaEmailSerializer(serializers.Serializer):
+    TIPO_APROVADOS = 'aprovados'
+    TIPO_REPROVADOS = 'reprovados'
+    TIPO_SELECIONADOS = 'selecionados'
+    TIPO_DESTINATARIOS_CHOICES = [
+        (TIPO_APROVADOS, 'Aprovados'),
+        (TIPO_REPROVADOS, 'Reprovados'),
+        (TIPO_SELECIONADOS, 'Selecionados'),
+    ]
+
+    tipo_destinatarios = serializers.ChoiceField(choices=TIPO_DESTINATARIOS_CHOICES)
+    assunto = serializers.CharField(max_length=120, validators=[safe_text_validator])
+    mensagem = serializers.CharField(max_length=5000, validators=[safe_text_validator])
+    cpf_candidatos = serializers.ListField(
+        child=serializers.CharField(max_length=15, validators=[cpf_format_validator]),
+        required=False,
+        allow_empty=False,
+    )
+
+    def validate(self, attrs):
+        """Valida selecao manual de candidatos para envio RH."""
+        tipo_destinatarios = attrs['tipo_destinatarios']
+        cpf_candidatos = attrs.get('cpf_candidatos')
+
+        if tipo_destinatarios == self.TIPO_SELECIONADOS and not cpf_candidatos:
+            raise serializers.ValidationError({
+                'cpf_candidatos': 'Informe ao menos um candidato para envio selecionado.',
+            })
+
+        if tipo_destinatarios != self.TIPO_SELECIONADOS and cpf_candidatos:
+            raise serializers.ValidationError({
+                'cpf_candidatos': 'Use cpf_candidatos apenas com tipo_destinatarios=selecionados.',
+            })
+
+        attrs['assunto'] = normalize_required_text(attrs.get('assunto'), 'assunto')
+        mensagem = str(attrs.get('mensagem') or '').strip()
+        if not mensagem:
+            raise serializers.ValidationError({'mensagem': 'mensagem nao pode ser vazio.'})
+        attrs['mensagem'] = mensagem
+        if cpf_candidatos:
+            attrs['cpf_candidatos'] = list(dict.fromkeys(cpf_candidatos))
+
+        return attrs
+
+
 class CandidatoVagaWriteSerializer(serializers.ModelSerializer):
     status_processo = serializers.CharField(
         required=False,

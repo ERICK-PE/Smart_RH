@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from apps.funcionario.models import Contrato, Funcionario, FuncionarioAgenteDocumento, PlanoCarreira
 from apps.funcionario.services.agente_documentos import (
+    delete_important_document_file,
     extract_text_from_document_file,
     save_important_document_upload,
     validate_document_file,
@@ -381,9 +382,13 @@ class FuncionarioAgenteDocumentoWriteSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """Atualiza documento mantendo upload fisico em imp_doc."""
         arquivo = validated_data.pop('arquivo', None)
+        arquivo_anterior = instance.arquivo.name
         if arquivo is not None:
             validated_data['arquivo'] = save_important_document_upload(arquivo)
-        return super().update(instance, validated_data)
+        documento = super().update(instance, validated_data)
+        if arquivo is not None and arquivo_anterior != documento.arquivo.name:
+            delete_important_document_file(arquivo_anterior)
+        return documento
 
 
 class FuncionarioAgentePerguntaSerializer(serializers.Serializer):

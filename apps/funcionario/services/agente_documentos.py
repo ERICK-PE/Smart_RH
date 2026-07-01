@@ -170,26 +170,68 @@ def save_important_document_upload(uploaded_file) -> str:
     return f'{IMPORTANT_DOCUMENTS_DIR_NAME}/{filename}'
 
 
-def load_important_document_sources() -> list[AgentDocumentSource]:
-    """Le todos os documentos suportados dentro de imp_doc."""
-    docs_dir = important_documents_dir()
-    if not docs_dir.exists():
-        return []
+def document_file_name(file_value) -> str:
+    """Retorna caminho logico salvo para o documento do agente."""
+    return getattr(file_value, 'name', file_value) or ''
+
+
+def important_document_file_path(file_value) -> Path | None:
+    """Resolve caminho fisico em imp_doc sem aceitar path traversal."""
+    file_name = document_file_name(file_value).replace('\\', '/')
+    prefix = f'{IMPORTANT_DOCUMENTS_DIR_NAME}/'
+    if not file_name.startswith(prefix):
+        return None
+
+    try:
+        basename = preserve_upload_basename(file_name[len(prefix):])
+    except ValueError:
+        return None
+
+    docs_dir = important_documents_dir().resolve()
+    path = (docs_dir / basename).resolve()
+    if docs_dir != path.parent:
+        return None
+    return path
+
+
+def delete_important_document_file(file_value) -> None:
+    """Remove arquivo fisico de imp_doc quando o cadastro e removido/trocado."""
+    path = important_document_file_path(file_value)
+    if path is None:
+        return
+
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        return
+
+
+def load_important_document_sources(document_queryset=None) -> list[AgentDocumentSource]:
+    """Carrega somente documentos ativos cadastrados, sem varrer imp_doc."""
+    if document_queryset is None:
+        from apps.funcionario.models import FuncionarioAgenteDocumento
+
+        document_queryset = (
+            FuncionarioAgenteDocumento.objects
+            .filter(ativo=True)
+            .order_by('titulo', 'id_documento')
+        )
 
     documents = []
-    for file_path in sorted(path for path in docs_dir.iterdir() if path.is_file()):
-        if get_document_extension(file_path.name) not in DOCUMENT_TEXT_EXTRACTORS:
+    for document in document_queryset:
+        if not getattr(document, 'ativo', True):
             continue
-        if file_path.stat().st_size > MAX_DOCUMENT_SIZE_BYTES:
+
+        content = normalize_whitespace(getattr(document, 'conteudo_extraido', ''))
+        file_name = document_file_name(getattr(document, 'arquivo', ''))
+        if not content or not file_name:
             continue
-        try:
-            content = extract_text_from_document_bytes(file_path.name, file_path.read_bytes())
-        except (OSError, ValueError, zipfile.BadZipFile):
-            continue
+
         documents.append(AgentDocumentSource(
-            titulo=file_path.name,
+            titulo=getattr(document, 'titulo', '') or file_name,
             conteudo_extraido=content,
-            arquivo=f'{IMPORTANT_DOCUMENTS_DIR_NAME}/{file_path.name}',
+            arquivo=file_name,
+            id_documento=getattr(document, 'id_documento', None),
         ))
 
     return documents
