@@ -6,7 +6,20 @@ from django.test import SimpleTestCase, override_settings
 from django.urls import resolve
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from Smart_RH.api_auth import SmartRHTokenObtainPairSerializer, SmartRHTokenObtainPairView
+from Smart_RH.api_auth import (
+    SmartRHMeView,
+    SmartRHTokenObtainPairSerializer,
+    SmartRHTokenObtainPairView,
+    build_session_user,
+)
+
+
+class GroupsStub:
+    def __init__(self, names):
+        self.names = names
+
+    def values_list(self, *args, **kwargs):
+        return self.names
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'])
@@ -55,6 +68,71 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
     def test_rotas_jwt_resolvem_sob_api_auth(self):
         self.assertIs(resolve('/api/auth/token/').func.view_class, SmartRHTokenObtainPairView)
         self.assertIs(resolve('/api/auth/token/refresh/').func.view_class, TokenRefreshView)
+        self.assertIs(resolve('/api/auth/me/').func.view_class, SmartRHMeView)
+
+    def test_auth_me_session_user_retorna_perfil_candidato(self):
+        user = SimpleNamespace(
+            pk=1,
+            username='candidato:ana',
+            get_username=lambda: 'candidato:ana',
+            get_full_name=lambda: '',
+            is_staff=False,
+            is_superuser=False,
+            groups=GroupsStub([]),
+            get_all_permissions=lambda: set(),
+            candidato=SimpleNamespace(pk='12345678901', nome='Ana'),
+        )
+
+        data = build_session_user(user)
+
+        self.assertEqual(data['profile'], 'candidato')
+        self.assertEqual(data['nome'], 'Ana')
+        self.assertEqual(data['candidato_cpf'], '12345678901')
+        self.assertTrue(data['is_candidato'])
+        self.assertFalse(data['is_funcionario'])
+
+    def test_auth_me_session_user_retorna_lideranca_por_cargo(self):
+        user = SimpleNamespace(
+            pk=2,
+            username='maria',
+            get_username=lambda: 'maria',
+            get_full_name=lambda: '',
+            is_staff=False,
+            is_superuser=False,
+            groups=GroupsStub([]),
+            get_all_permissions=lambda: set(),
+            funcionario=SimpleNamespace(
+                pk=10,
+                nome='Maria',
+                fk_id_cargo=SimpleNamespace(nome='Gerente'),
+            ),
+        )
+
+        data = build_session_user(user)
+
+        self.assertEqual(data['profile'], 'lideranca')
+        self.assertEqual(data['funcionario_id'], 10)
+        self.assertTrue(data['is_funcionario'])
+        self.assertTrue(data['is_lideranca'])
+
+    def test_auth_me_session_user_retorna_rh_admin_por_grupo(self):
+        user = SimpleNamespace(
+            pk=3,
+            username='rh',
+            get_username=lambda: 'rh',
+            get_full_name=lambda: '',
+            is_staff=False,
+            is_superuser=False,
+            groups=GroupsStub(['rh']),
+            get_all_permissions=lambda: set(),
+            funcionario=SimpleNamespace(pk=20, nome='RH', fk_id_cargo=SimpleNamespace(nome='Analista')),
+        )
+
+        data = build_session_user(user)
+
+        self.assertEqual(data['profile'], 'rh_admin')
+        self.assertTrue(data['is_rh_admin'])
+        self.assertEqual(data['groups'], ['rh'])
 
     def test_token_serializer_resolve_username_publico_do_candidato(self):
         serializer = SmartRHTokenObtainPairSerializer()
