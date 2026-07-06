@@ -4,6 +4,7 @@ export type LoginProfile = 'candidato' | 'funcionario' | 'rh';
 export type SessionUser = {
   id: number;
   username: string;
+  email: string;
   nome?: string;
   is_staff: boolean;
   is_superuser: boolean;

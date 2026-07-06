@@ -123,6 +123,7 @@ def build_session_user(user):
     return {
         'id': user.pk,
         'username': username,
+        'email': getattr(user, 'email', '') or '',
         'nome': (
             getattr(funcionario, 'nome', None)
             or getattr(candidato, 'nome', None)
@@ -190,6 +191,7 @@ class SmartRHTokenObtainPairView(TokenObtainPairView):
 class SmartRHMeSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     username = serializers.CharField()
+    email = serializers.CharField(allow_blank=True)
     nome = serializers.CharField()
     is_staff = serializers.BooleanField()
     is_superuser = serializers.BooleanField()

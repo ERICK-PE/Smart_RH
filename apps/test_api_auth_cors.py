@@ -74,6 +74,7 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         user = SimpleNamespace(
             pk=1,
             username='candidato:ana',
+            email='ana@example.com',
             get_username=lambda: 'candidato:ana',
             get_full_name=lambda: '',
             is_staff=False,
@@ -86,6 +87,7 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         data = build_session_user(user)
 
         self.assertEqual(data['profile'], 'candidato')
+        self.assertEqual(data['email'], 'ana@example.com')
         self.assertEqual(data['nome'], 'Ana')
         self.assertEqual(data['candidato_cpf'], '12345678901')
         self.assertTrue(data['is_candidato'])
@@ -95,6 +97,7 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         user = SimpleNamespace(
             pk=2,
             username='maria',
+            email='maria@example.com',
             get_username=lambda: 'maria',
             get_full_name=lambda: '',
             is_staff=False,
@@ -111,6 +114,7 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         data = build_session_user(user)
 
         self.assertEqual(data['profile'], 'lideranca')
+        self.assertEqual(data['email'], 'maria@example.com')
         self.assertEqual(data['funcionario_id'], 10)
         self.assertTrue(data['is_funcionario'])
         self.assertTrue(data['is_lideranca'])
@@ -119,6 +123,7 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         user = SimpleNamespace(
             pk=3,
             username='rh',
+            email='rh@example.com',
             get_username=lambda: 'rh',
             get_full_name=lambda: '',
             is_staff=False,
@@ -131,8 +136,28 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         data = build_session_user(user)
 
         self.assertEqual(data['profile'], 'rh_admin')
+        self.assertEqual(data['email'], 'rh@example.com')
         self.assertTrue(data['is_rh_admin'])
         self.assertEqual(data['groups'], ['rh'])
+
+    def test_auth_me_session_user_mantem_rh_admin_como_perfil_unico(self):
+        user = SimpleNamespace(
+            pk=4,
+            username='admin',
+            email='admin@example.com',
+            get_username=lambda: 'admin',
+            get_full_name=lambda: '',
+            is_staff=True,
+            is_superuser=False,
+            groups=GroupsStub([]),
+            get_all_permissions=lambda: set(),
+        )
+
+        data = build_session_user(user)
+
+        self.assertEqual(data['profile'], 'rh_admin')
+        self.assertNotEqual(data['profile'], 'rh')
+        self.assertNotEqual(data['profile'], 'admin')
 
     def test_token_serializer_resolve_username_publico_do_candidato(self):
         serializer = SmartRHTokenObtainPairSerializer()
