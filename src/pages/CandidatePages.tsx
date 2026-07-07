@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { api, extractApiError, listResource } from '../services/api';
 import type { ApiRecord } from '../types';
 import { PageState } from '../components/PageState';
-import { Button, PageHeader, SensitiveValue } from '../components/ui';
+import { Button, PageHeader } from '../components/ui';
 import { displayValue } from '../utils/formatters';
 
 const MAX_RESUME_FILE_SIZE = 5 * 1024 * 1024;
@@ -26,6 +26,10 @@ function formatFileSize(size: number) {
 function resumeExtension(file: File) {
   const index = file.name.lastIndexOf('.');
   return index >= 0 ? file.name.slice(index).toLowerCase() : '';
+}
+
+function resumeDisplayName(path: string) {
+  return path.split(/[\\/]/).filter(Boolean).pop() || path;
 }
 
 function validateResumeFile(file: File) {
@@ -74,7 +78,9 @@ function jobFromApplication(application: ApiRecord) {
 export function CandidateProfilePage() {
   const { user } = useAuth();
   const cpf = user?.candidato_cpf;
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [error, setError] = useState('');
+  const [resumeError, setResumeError] = useState('');
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ['candidate-profile', cpf],
@@ -94,6 +100,25 @@ export function CandidateProfilePage() {
     onError: (mutationError) => setError(extractApiError(mutationError)),
   });
 
+  const updateResume = useMutation({
+    mutationFn: () => {
+      if (!resumeFile) {
+        return Promise.reject(new Error('Selecione um arquivo PDF, DOC ou DOCX.'));
+      }
+      const formData = new FormData();
+      formData.append('curriculo', resumeFile);
+      return api.patch(`/candidato/candidatos/${cpf}/curriculo/`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    },
+    onSuccess: () => {
+      setResumeError('');
+      setResumeFile(null);
+      void queryClient.invalidateQueries({ queryKey: ['candidate-profile', cpf] });
+    },
+    onError: (mutationError) => setResumeError(extractApiError(mutationError)),
+  });
+
   if (!cpf) return <PageState title="Usuario sem vinculo de candidato" variant="error" />;
   if (query.isLoading) return <PageState title="Carregando perfil" />;
   if (query.isError || !query.data) return <PageState title="Nao foi possivel carregar o perfil" variant="error" />;
@@ -108,83 +133,9 @@ export function CandidateProfilePage() {
     });
   }
 
-  return (
-    <section>
-      <PageHeader title="Perfil do candidato" description="Dados pessoais do seu cadastro." />
-      {error ? (
-        <pre className="mb-4 whitespace-pre-wrap rounded-md border border-danger/30 bg-red-50 p-3 font-sans text-sm text-danger dark:bg-red-950/30">
-          {error}
-        </pre>
-      ) : null}
-      <form
-        onSubmit={submit}
-        className="grid gap-4 rounded-md border border-line bg-white p-4 md:grid-cols-3 dark:border-slate-700 dark:bg-slate-950"
-      >
-        {(['nome', 'email', 'telefone'] as const).map((field) => (
-          <label key={field}>
-            <span className="mb-1 block text-sm font-medium capitalize text-ink dark:text-slate-100">{field}</span>
-            <input
-              className="focus-ring w-full rounded-md border border-line bg-white p-2 text-sm text-ink dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              name={field}
-              defaultValue={String(query.data?.[field] ?? '')}
-            />
-          </label>
-        ))}
-        <div className="md:col-span-3">
-          <Button type="submit" disabled={update.isPending}>
-            Salvar perfil
-          </Button>
-        </div>
-      </form>
-      <div className="mt-4 rounded-md border border-line bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
-        <p className="text-xs font-semibold uppercase text-muted dark:text-slate-400">CPF</p>
-        <p className="mt-1 text-sm">
-          <SensitiveValue value={query.data.cpf_candidato} />
-        </p>
-      </div>
-    </section>
-  );
-}
-
-/**
- * Atualiza o curriculo do candidato respeitando FileField e validacoes do backend.
- */
-export function CandidateResumePage() {
-  const { user } = useAuth();
-  const cpf = user?.candidato_cpf;
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [error, setError] = useState('');
-  const queryClient = useQueryClient();
-  const profile = useQuery({
-    queryKey: ['candidate-resume', cpf],
-    queryFn: async () => {
-      const response = await api.get<ApiRecord>(`/candidato/candidatos/${cpf}/`);
-      return response.data;
-    },
-    enabled: Boolean(cpf),
-  });
-  const update = useMutation({
-    mutationFn: () => {
-      if (!resumeFile) {
-        return Promise.reject(new Error('Selecione um arquivo PDF, DOC ou DOCX.'));
-      }
-      const formData = new FormData();
-      formData.append('curriculo', resumeFile);
-      return api.patch(`/candidato/candidatos/${cpf}/curriculo/`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-    },
-    onSuccess: () => {
-      setError('');
-      setResumeFile(null);
-      void queryClient.invalidateQueries({ queryKey: ['candidate-resume', cpf] });
-    },
-    onError: (mutationError) => setError(extractApiError(mutationError)),
-  });
-
-  function handleFile(event: ChangeEvent<HTMLInputElement>) {
+  function handleResumeFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
-    setError('');
+    setResumeError('');
 
     if (!file) {
       setResumeFile(null);
@@ -194,7 +145,7 @@ export function CandidateResumePage() {
     const validationError = validateResumeFile(file);
     if (validationError) {
       setResumeFile(null);
-      setError(validationError);
+      setResumeError(validationError);
       event.target.value = '';
       return;
     }
@@ -206,27 +157,63 @@ export function CandidateResumePage() {
     setResumeFile(null);
   }
 
-  if (!cpf) return <PageState title="Usuario sem vinculo de candidato" variant="error" />;
-  if (profile.isLoading) return <PageState title="Carregando curriculo" />;
-
-  const currentResume = profile.data?.curriculo ? String(profile.data.curriculo) : '';
+  const currentResume = query.data?.curriculo ? String(query.data.curriculo) : '';
+  const currentResumeName = currentResume ? resumeDisplayName(currentResume) : '';
 
   return (
     <section>
-      <PageHeader title="Curriculo" description="Atualize seu curriculo para os processos seletivos." />
+      <PageHeader title="Perfil do candidato" description="Dados pessoais e curriculo do seu cadastro." />
       {error ? (
         <pre className="mb-4 whitespace-pre-wrap rounded-md border border-danger/30 bg-red-50 p-3 font-sans text-sm text-danger dark:bg-red-950/30">
           {error}
         </pre>
       ) : null}
-      <div className="rounded-md border border-line bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
-        <div className="mb-4 rounded-md border border-line bg-panel p-4 dark:border-slate-700 dark:bg-slate-900">
+      <form
+        onSubmit={submit}
+        className="grid gap-4 rounded-md border border-line bg-white p-4 md:grid-cols-4 dark:border-slate-700 dark:bg-slate-950"
+      >
+        <label>
+          <span className="mb-1 block text-sm font-medium text-ink dark:text-slate-100">CPF</span>
+          <input
+            className="w-full rounded-md border border-line bg-panel p-2 text-sm text-ink dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            value={String(query.data?.cpf_candidato ?? '')}
+            readOnly
+          />
+        </label>
+        {(['nome', 'email', 'telefone'] as const).map((field) => (
+          <label key={field}>
+            <span className="mb-1 block text-sm font-medium text-ink dark:text-slate-100">
+              {field === 'nome' ? 'Nome' : field === 'email' ? 'E-mail' : 'Telefone'}
+            </span>
+            <input
+              className="focus-ring w-full rounded-md border border-line bg-white p-2 text-sm text-ink dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              name={field}
+              defaultValue={String(query.data?.[field] ?? '')}
+            />
+          </label>
+        ))}
+        <div className="md:col-span-4">
+          <Button type="submit" disabled={update.isPending}>
+            Salvar perfil
+          </Button>
+        </div>
+      </form>
+
+      {resumeError ? (
+        <pre className="mt-4 whitespace-pre-wrap rounded-md border border-danger/30 bg-red-50 p-3 font-sans text-sm text-danger dark:bg-red-950/30">
+          {resumeError}
+        </pre>
+      ) : null}
+      <div className="mt-4 rounded-md border border-line bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
+        <h2 className="text-base font-semibold text-ink dark:text-slate-100">Curriculo</h2>
+        <p className="mt-1 text-sm text-muted dark:text-slate-400">Arquivo usado nos processos seletivos.</p>
+        <div className="mt-4 rounded-md border border-line bg-panel p-4 dark:border-slate-700 dark:bg-slate-900">
           <p className="text-xs font-semibold uppercase text-muted dark:text-slate-400">Curriculo atual</p>
           <p className="mt-1 text-sm text-ink dark:text-slate-100">
-            {currentResume || 'Nenhum curriculo cadastrado.'}
+            {currentResumeName || 'Nenhum curriculo cadastrado.'}
           </p>
         </div>
-        <div className="mb-4 rounded-md border border-line bg-panel p-4 dark:border-slate-700 dark:bg-slate-900">
+        <div className="mt-4 rounded-md border border-line bg-panel p-4 dark:border-slate-700 dark:bg-slate-900">
           <label className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="flex items-center gap-2 text-sm font-medium text-ink dark:text-slate-100">
               <FileUp className="h-4 w-4 text-brand" />
@@ -235,7 +222,7 @@ export function CandidateResumePage() {
             <input
               type="file"
               accept={RESUME_ACCEPT}
-              onChange={handleFile}
+              onChange={handleResumeFile}
               className="max-w-full text-sm"
             />
           </label>
@@ -253,9 +240,11 @@ export function CandidateResumePage() {
             </span>
           ) : null}
         </div>
-        <Button onClick={() => update.mutate()} disabled={update.isPending || !resumeFile}>
-          Salvar curriculo
-        </Button>
+        <div className="mt-4">
+          <Button onClick={() => updateResume.mutate()} disabled={updateResume.isPending || !resumeFile}>
+            Salvar curriculo
+          </Button>
+        </div>
       </div>
     </section>
   );

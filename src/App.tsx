@@ -20,7 +20,6 @@ import {
   CandidateApplicationsPage,
   CandidateJobsPage,
   CandidateProfilePage,
-  CandidateResumePage,
 } from './pages/CandidatePages';
 import { RecruitingProcessPage } from './pages/RecruitingProcessPage';
 import { PageState } from './components/PageState';
@@ -53,6 +52,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/candidato/login" element={<LoginPage mode="candidate" />} />
       <Route path="/candidato/cadastro" element={<CandidateRegisterPage />} />
 
       <Route element={<ProtectedRoute />}>
@@ -91,7 +91,7 @@ export function App() {
 
           <Route element={<ProfileRoute profiles={['candidato']} />}>
             <Route path="/candidato/perfil" element={<CandidateProfilePage />} />
-            <Route path="/candidato/curriculo" element={<CandidateResumePage />} />
+            <Route path="/candidato/curriculo" element={<Navigate to="/candidato/perfil" replace />} />
             <Route path="/candidato/vagas" element={<CandidateJobsPage />} />
             <Route path="/candidato/candidaturas" element={<CandidateApplicationsPage />} />
           </Route>

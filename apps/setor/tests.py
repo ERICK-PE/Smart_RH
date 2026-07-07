@@ -18,6 +18,8 @@ from apps.setor.api.views import CargoViewSet, SetorViewSet
 
 
 class SetorCargoCRUDViewSetTests(SimpleTestCase):
+    databases = {'default'}
+
     def test_viewsets_usam_model_viewset_para_crud_completo(self):
         self.assertTrue(issubclass(SetorViewSet, viewsets.ModelViewSet))
         self.assertTrue(issubclass(CargoViewSet, viewsets.ModelViewSet))

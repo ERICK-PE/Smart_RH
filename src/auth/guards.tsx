@@ -22,7 +22,10 @@ export function ProtectedRoute() {
   const location = useLocation();
 
   if (loading) return <PageState title="Carregando sessão" />;
-  if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (!isAuthenticated) {
+    const loginPath = location.pathname.startsWith('/candidato') ? '/candidato/login' : '/login';
+    return <Navigate to={loginPath} replace state={{ from: location }} />;
+  }
   return <Outlet />;
 }
 
