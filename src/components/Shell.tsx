@@ -1,7 +1,5 @@
 import {
   BadgeCheck,
-  BrainCircuit,
-  BriefcaseBusiness,
   Building2,
   ChevronsLeft,
   ChevronsRight,
@@ -20,37 +18,72 @@ import {
   Moon,
   SearchCheck,
   Sun,
-  TrendingUp,
-  UserSearch,
   UsersRound,
   type LucideIcon,
 } from 'lucide-react';
 import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import type { UserProfile } from '../types';
+import { EmployeeAgentChat } from './EmployeeAgentChat';
+
+type NavChild = {
+  label: string;
+  to: string;
+  profiles: UserProfile[];
+};
 
 type NavItem = {
   label: string;
   to: string;
   icon: LucideIcon;
   profiles: UserProfile[];
+  children?: NavChild[];
 };
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', to: '/rh/dashboard', icon: LayoutDashboard, profiles: ['rh_admin'] },
-  { label: 'Setores', to: '/rh/setores', icon: Building2, profiles: ['rh_admin'] },
-  { label: 'Cargos', to: '/rh/cargos', icon: BriefcaseBusiness, profiles: ['rh_admin'] },
-  { label: 'Funcionários', to: '/rh/funcionarios', icon: IdCard, profiles: ['rh_admin'] },
-  { label: 'Contratos', to: '/rh/contratos', icon: FileSignature, profiles: ['rh_admin'] },
-  { label: 'Folhas', to: '/rh/folhas-pagamento', icon: FileText, profiles: ['rh_admin'] },
-  { label: 'Planos', to: '/rh/planos-carreira', icon: TrendingUp, profiles: ['rh_admin'] },
-  { label: 'Avaliações', to: '/rh/avaliacoes', icon: ClipboardCheck, profiles: ['rh_admin'] },
-  { label: 'Análises', to: '/rh/analises-comportamentais', icon: BrainCircuit, profiles: ['rh_admin'] },
-  { label: 'Vagas', to: '/rh/vagas', icon: Megaphone, profiles: ['rh_admin'] },
-  { label: 'Candidatos', to: '/rh/candidatos', icon: UserSearch, profiles: ['rh_admin'] },
-  { label: 'Equipe', to: '/lideranca/equipe', icon: UsersRound, profiles: ['lideranca', 'rh_admin'] },
+  {
+    label: 'Setor+',
+    to: '/rh/setores',
+    icon: Building2,
+    profiles: ['rh_admin'],
+    children: [
+      { label: 'Cargos', to: '/rh/cargos', profiles: ['rh_admin'] },
+      { label: 'Equipe', to: '/lideranca/equipe', profiles: ['rh_admin'] },
+      { label: 'Planos', to: '/rh/planos-carreira', profiles: ['rh_admin'] },
+    ],
+  },
+  {
+    label: 'Funcionários+',
+    to: '/rh/funcionarios',
+    icon: IdCard,
+    profiles: ['rh_admin'],
+    children: [
+      { label: 'Contratos', to: '/rh/contratos', profiles: ['rh_admin'] },
+      { label: 'Folhas', to: '/rh/folhas-pagamento', profiles: ['rh_admin'] },
+    ],
+  },
+  {
+    label: 'Avaliações+',
+    to: '/rh/avaliacoes',
+    icon: ClipboardCheck,
+    profiles: ['rh_admin'],
+    children: [
+      { label: 'Análises', to: '/rh/analises-comportamentais', profiles: ['rh_admin'] },
+    ],
+  },
+  {
+    label: 'Vagas+',
+    to: '/rh/vagas',
+    icon: Megaphone,
+    profiles: ['rh_admin'],
+    children: [
+      { label: 'Candidatos', to: '/rh/candidatos', profiles: ['rh_admin'] },
+    ],
+  },
+  { label: 'Equipe', to: '/lideranca/equipe', icon: UsersRound, profiles: ['lideranca'] },
   { label: 'Meus dados', to: '/funcionario/meus-dados', icon: BadgeCheck, profiles: ['funcionario', 'lideranca'] },
   { label: 'Contratos', to: '/funcionario/meus-contratos', icon: FileText, profiles: ['funcionario', 'lideranca'] },
   { label: 'Minha folha', to: '/funcionario/minha-folha', icon: FileSignature, profiles: ['funcionario', 'lideranca'] },
@@ -68,6 +101,7 @@ export function Shell() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const displayName = user?.nome || user?.username || 'Usuário';
@@ -76,6 +110,10 @@ export function Shell() {
   function handleLogout() {
     logout();
     navigate('/login', { replace: true });
+  }
+
+  function isPathActive(path: string) {
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
   }
 
   return (
@@ -115,25 +153,48 @@ export function Shell() {
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden py-4 pl-3">
           {visibleItems.map((item) => {
             const Icon = item.icon;
+            const visibleChildren = item.children?.filter((child) => child.profiles.includes(user?.profile ?? null)) ?? [];
+            const childActive = visibleChildren.some((child) => isPathActive(child.to));
+
             return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                aria-label={item.label}
-                title={isSidebarCollapsed ? item.label : undefined}
-                className={({ isActive }) =>
-                  `flex items-center rounded-l-md rounded-r-none py-2.5 text-[15px] font-semibold transition-colors ${
-                    isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 pl-3 pr-0'
-                  } ${
-                    isActive
-                      ? 'bg-brand text-white'
-                      : 'text-slate-700 hover:bg-panel hover:text-ink dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                  }`
-                }
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                {!isSidebarCollapsed && item.label}
-              </NavLink>
+              <div key={item.to}>
+                <NavLink
+                  to={item.to}
+                  aria-label={item.label}
+                  title={isSidebarCollapsed ? item.label : undefined}
+                  className={({ isActive }) =>
+                    `flex items-center rounded-l-md rounded-r-none py-2.5 text-[15px] font-semibold transition-colors ${
+                      isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 pl-3 pr-0'
+                    } ${
+                      isActive || childActive
+                        ? 'bg-brand text-white'
+                        : 'text-slate-700 hover:bg-panel hover:text-ink dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                    }`
+                  }
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  {!isSidebarCollapsed && item.label}
+                </NavLink>
+                {!isSidebarCollapsed && visibleChildren.length ? (
+                  <div className="mt-1 space-y-1 pl-11">
+                    {visibleChildren.map((child) => (
+                      <NavLink
+                        key={child.to}
+                        to={child.to}
+                        className={({ isActive }) =>
+                          `block rounded-l-md rounded-r-none py-1.5 pl-2 pr-0 text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'bg-brand/15 text-brand dark:bg-brand/20 dark:text-sky-300'
+                              : 'text-slate-500 hover:bg-panel hover:text-ink dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
+                          }`
+                        }
+                      >
+                        {child.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             );
           })}
         </nav>
@@ -184,6 +245,7 @@ export function Shell() {
           <Outlet />
         </main>
       </div>
+      <EmployeeAgentChat />
     </div>
   );
 }

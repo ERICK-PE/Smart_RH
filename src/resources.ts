@@ -17,6 +17,7 @@ const funcionarioRelation = {
   idField: 'id_funcionario',
   labelField: 'nome',
   secondaryFields: ['fk_id_cargo'],
+  hideIdColumn: true,
 };
 
 const vagaStatusOptions = [
@@ -93,7 +94,6 @@ export const resources = {
     endpoint: '/funcionario/funcionarios/',
     idField: 'id_funcionario',
     columns: [
-      { key: 'id_funcionario', label: 'ID' },
       { key: 'nome', label: 'Nome' },
       { key: 'cpf', label: 'CPF' },
       { key: 'email', label: 'E-mail' },
@@ -130,8 +130,8 @@ export const resources = {
           { label: 'Inativo', value: 'inativo' },
         ],
       },
-      { name: 'setor', label: 'ID setor' },
-      { name: 'cargo', label: 'ID cargo' },
+      { name: 'setor', label: 'Setor' },
+      { name: 'cargo', label: 'Cargo' },
     ],
     allowCreate: true,
     allowEdit: true,
@@ -143,7 +143,6 @@ export const resources = {
     endpoint: '/funcionario/contratos/',
     idField: 'id_contrato',
     columns: [
-      { key: 'id_contrato', label: 'ID' },
       { key: 'fk_id_funcionario', label: 'Funcionario' },
       { key: 'tipo_contrato', label: 'Tipo' },
       { key: 'salario', label: 'Salario' },
@@ -160,7 +159,7 @@ export const resources = {
       { name: 'arquivo', label: 'Arquivo PDF ou Word', type: 'file' },
     ],
     filters: [
-      { name: 'funcionario', label: 'ID funcionario' },
+      { name: 'funcionario', label: 'Funcionario' },
       { name: 'funcionario_nome', label: 'Nome funcionario' },
       { name: 'tipo_contrato', label: 'Tipo contrato' },
     ],
@@ -174,7 +173,6 @@ export const resources = {
     endpoint: '/funcionario/folhas-pagamento/',
     idField: 'id_folha',
     columns: [
-      { key: 'id_folha', label: 'ID' },
       { key: 'fk_id_funcionario', label: 'Funcionario' },
       { key: 'competencia', label: 'Competencia' },
       { key: 'arquivo', label: 'Arquivo' },
@@ -186,7 +184,7 @@ export const resources = {
       { name: 'arquivo', label: 'Arquivo PDF ou Word', type: 'file', required: true },
     ],
     filters: [
-      { name: 'funcionario', label: 'ID funcionario' },
+      { name: 'funcionario', label: 'Funcionario' },
       { name: 'funcionario_nome', label: 'Nome funcionario' },
       { name: 'competencia', label: 'Competencia' },
     ],
@@ -200,7 +198,6 @@ export const resources = {
     endpoint: '/funcionario/planos-carreira/',
     idField: 'id_plano',
     columns: [
-      { key: 'id_plano', label: 'ID' },
       { key: 'fk_id_cargo', label: 'Cargo' },
       { key: 'descricao', label: 'Descricao' },
       { key: 'requisitos', label: 'Requisitos' },
@@ -225,7 +222,6 @@ export const resources = {
     endpoint: '/avaliacao/avaliacoes-desempenho/',
     idField: 'id_avaliacao',
     columns: [
-      { key: 'id_avaliacao', label: 'ID' },
       { key: 'fk_id_funcionario', label: 'Funcionario' },
       { key: 'fk_id_avaliador', label: 'Avaliador' },
       { key: 'categoria', label: 'Categoria' },
@@ -241,8 +237,8 @@ export const resources = {
       { name: 'data_avaliacao', label: 'Data da avaliacao', type: 'date', required: true },
     ],
     filters: [
-      { name: 'funcionario', label: 'ID funcionario' },
-      { name: 'avaliador', label: 'ID avaliador' },
+      { name: 'funcionario', label: 'Funcionario' },
+      { name: 'avaliador', label: 'Avaliador' },
       { name: 'categoria', label: 'Categoria' },
       { name: 'nota_min', label: 'Nota minima' },
       { name: 'nota_max', label: 'Nota maxima' },
@@ -257,7 +253,6 @@ export const resources = {
     endpoint: '/avaliacao/analises-comportamentais/',
     idField: 'id_analise',
     columns: [
-      { key: 'id_analise', label: 'ID' },
       { key: 'fk_id_funcionario', label: 'Funcionario' },
       { key: 'resultado', label: 'Resultado' },
       { key: 'data_analise', label: 'Data' },
@@ -268,7 +263,7 @@ export const resources = {
       { name: 'data_analise', label: 'Data da analise', type: 'date' },
     ],
     filters: [
-      { name: 'funcionario', label: 'ID funcionario' },
+      { name: 'funcionario', label: 'Funcionario' },
       { name: 'funcionario_nome', label: 'Nome funcionario' },
     ],
     allowCreate: true,

@@ -311,6 +311,7 @@ class FuncionarioComRelacionamentosReadSerializer(serializers.ModelSerializer):
 
 class PlanoCarreiraReadSerializer(serializers.ModelSerializer):
     fk_id_cargo = serializers.SerializerMethodField()
+    pode_editar = serializers.SerializerMethodField()
 
     class Meta:
         model = PlanoCarreira
@@ -319,12 +320,31 @@ class PlanoCarreiraReadSerializer(serializers.ModelSerializer):
             'fk_id_cargo',
             'descricao',
             'requisitos',
+            'pode_editar',
         ]
         read_only_fields = fields
 
     def get_fk_id_cargo(self, obj) -> dict | None:
         """Retorna resumo seguro do cargo vinculado."""
         return cargo_summary(obj.fk_id_cargo)
+
+    def get_pode_editar(self, obj) -> bool:
+        """Indica se usuario atual pode editar o plano no fluxo de lideranca."""
+        request = self.context.get('request')
+        view = self.context.get('view')
+        if not request or not getattr(request, 'user', None) or not request.user.is_authenticated:
+            return False
+        if view and getattr(view, 'user_has_global_access', None) and view.user_has_global_access():
+            return True
+        if view and getattr(view, 'user_has_manage_lideranca_permission', None) and view.user_has_manage_lideranca_permission():
+            return True
+
+        funcionario_id = getattr(request.user, 'funcionario_id', None)
+        if funcionario_id is None:
+            funcionario = getattr(request.user, 'funcionario', None)
+            funcionario_id = getattr(funcionario, 'pk', None)
+
+        return bool(funcionario_id and str(obj.fk_id_criador_id) == str(funcionario_id))
 
 
 class PlanoCarreiraWriteSerializer(serializers.ModelSerializer):

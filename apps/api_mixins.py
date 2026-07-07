@@ -238,6 +238,17 @@ class FuncionarioComumAccessMixin(RHAdminAccessMixin):
                 'Lideranca so pode editar avaliacao criada por ela mesma sem permissao manage_lideranca.'
             )
 
+    def assert_can_edit_lideranca_plano(self, plano):
+        """Bloqueia lideranca editando plano de carreira criado por outro lider."""
+        if self.user_has_global_access() or self.user_has_manage_lideranca_permission():
+            return
+
+        request_funcionario_id = self.get_request_funcionario_id()
+        if str(getattr(plano, 'fk_id_criador_id', None)) != str(request_funcionario_id):
+            raise PermissionDenied(
+                'Lideranca so pode editar plano de carreira criado por ela mesma sem permissao manage_lideranca.'
+            )
+
     def assert_lideranca_access(self):
         """Bloqueia requisicao quando usuario nao tem perfil de lideranca."""
         if not self.user_has_lideranca_access():

@@ -10,8 +10,9 @@ type DisplayField = {
   label: string;
 };
 
+type FieldLayout = 'default' | 'profile' | 'stack';
+
 const myDataFields: DisplayField[] = [
-  { key: 'id_funcionario', label: 'ID' },
   { key: 'nome', label: 'Nome' },
   { key: 'cpf', label: 'CPF' },
   { key: 'email', label: 'E-mail' },
@@ -23,7 +24,6 @@ const myDataFields: DisplayField[] = [
 ];
 
 const contractFields: DisplayField[] = [
-  { key: 'id_contrato', label: 'ID' },
   { key: 'tipo_contrato', label: 'Tipo' },
   { key: 'salario', label: 'Salario' },
   { key: 'data_inicio', label: 'Data inicio' },
@@ -32,21 +32,18 @@ const contractFields: DisplayField[] = [
 ];
 
 const payslipFields: DisplayField[] = [
-  { key: 'id_folha', label: 'ID' },
   { key: 'competencia', label: 'Competencia' },
   { key: 'arquivo', label: 'Arquivo' },
   { key: 'criado_em', label: 'Criado em' },
 ];
 
 const careerPlanFields: DisplayField[] = [
-  { key: 'id_plano', label: 'ID' },
   { key: 'fk_id_cargo', label: 'Cargo vinculado' },
   { key: 'descricao', label: 'Descricao' },
   { key: 'requisitos', label: 'Requisitos' },
 ];
 
 const reviewFields: DisplayField[] = [
-  { key: 'id_avaliacao', label: 'ID' },
   { key: 'fk_id_avaliador', label: 'Avaliador' },
   { key: 'categoria', label: 'Categoria' },
   { key: 'nota', label: 'Nota' },
@@ -54,9 +51,23 @@ const reviewFields: DisplayField[] = [
   { key: 'data_avaliacao', label: 'Data avaliacao' },
 ];
 
-function FieldGrid({ record, fields }: { record: ApiRecord; fields: DisplayField[] }) {
+function gridClass(layout: FieldLayout) {
+  if (layout === 'profile') return 'grid gap-x-8 gap-y-4 md:grid-cols-2';
+  if (layout === 'stack') return 'grid gap-4';
+  return 'grid gap-3 md:grid-cols-2 xl:grid-cols-3';
+}
+
+function FieldGrid({
+  record,
+  fields,
+  layout = 'default',
+}: {
+  record: ApiRecord;
+  fields: DisplayField[];
+  layout?: FieldLayout;
+}) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className={gridClass(layout)}>
       {fields.map((field) => (
         <div key={field.key}>
           <p className="text-xs font-semibold uppercase text-muted dark:text-slate-400">{field.label}</p>
@@ -87,11 +98,13 @@ function SelfListPage({
   description,
   endpoint,
   fields,
+  fieldLayout = 'default',
 }: {
   title: string;
   description: string;
   endpoint: string;
   fields: DisplayField[];
+  fieldLayout?: FieldLayout;
 }) {
   const query = useQuery({
     queryKey: ['self-list', endpoint],
@@ -111,7 +124,7 @@ function SelfListPage({
               key={getCardKey(item, index)}
               className="rounded-md border border-line bg-white p-4 shadow-soft dark:border-slate-700 dark:bg-slate-950"
             >
-              <FieldGrid record={item} fields={fields} />
+              <FieldGrid record={item} fields={fields} layout={fieldLayout} />
             </article>
           ))
         ) : (
@@ -147,7 +160,7 @@ export function MyDataPage() {
     <section>
       <PageHeader title="Meus dados" description="Informacoes retornadas conforme seu vinculo de funcionario." />
       <div className="rounded-md border border-line bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
-        <FieldGrid record={query.data} fields={myDataFields} />
+        <FieldGrid record={query.data} fields={myDataFields} layout="profile" />
       </div>
     </section>
   );
@@ -197,6 +210,7 @@ export function MyCareerPlanPage() {
       description="Planos relacionados ao seu cargo atual."
       endpoint={`/funcionario/funcionarios/${user.funcionario_id}/meu-plano-carreira/`}
       fields={careerPlanFields}
+      fieldLayout="stack"
     />
   );
 }
@@ -213,6 +227,7 @@ export function MyReviewsPage() {
       description="Avaliacoes de desempenho recebidas por voce."
       endpoint={`/funcionario/funcionarios/${user.funcionario_id}/minhas-avaliacoes-desempenho/`}
       fields={reviewFields}
+      fieldLayout="stack"
     />
   );
 }

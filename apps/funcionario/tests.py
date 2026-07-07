@@ -38,6 +38,7 @@ from apps.funcionario.models import (
     FolhaPagamento,
     Funcionario,
     FuncionarioAgenteDocumento,
+    PlanoCarreira,
     contrato_upload_path,
     folha_pagamento_upload_path,
     funcionario_agente_documento_upload_path,
@@ -133,6 +134,39 @@ class FuncionarioComumAccessMixinTests(SimpleTestCase):
 
         mixin.assert_can_edit_lideranca_avaliacao(SimpleNamespace(fk_id_avaliador_id=2))
 
+    def test_lideranca_edita_apenas_plano_proprio_sem_manage_lideranca(self):
+        mixin = FuncionarioComumAccessMixin()
+        mixin.request = SimpleNamespace(
+            user=SimpleNamespace(
+                is_authenticated=True,
+                is_staff=False,
+                is_superuser=False,
+                funcionario_id=1,
+                pk=None,
+                has_perm=lambda permission: False,
+            )
+        )
+
+        mixin.assert_can_edit_lideranca_plano(SimpleNamespace(fk_id_criador_id=1))
+
+        with self.assertRaises(PermissionDenied):
+            mixin.assert_can_edit_lideranca_plano(SimpleNamespace(fk_id_criador_id=2))
+
+    def test_manage_lideranca_permite_editar_plano_de_outro_autor(self):
+        mixin = FuncionarioComumAccessMixin()
+        mixin.request = SimpleNamespace(
+            user=SimpleNamespace(
+                is_authenticated=True,
+                is_staff=False,
+                is_superuser=False,
+                funcionario_id=1,
+                pk=None,
+                has_perm=lambda permission: permission == 'funcionario.manage_lideranca',
+            )
+        )
+
+        mixin.assert_can_edit_lideranca_plano(SimpleNamespace(fk_id_criador_id=2))
+
 
 class FuncionarioReadSerializerTests(SimpleTestCase):
     def test_dados_sensiveis_sao_mascarados_sem_contexto_privilegiado(self):
@@ -192,13 +226,16 @@ class FuncionarioStatusAPITests(SimpleTestCase):
         expected_routes = {
             '/api/funcionario/funcionarios/1/rh/inativar/': 'rh_inativar',
             '/api/funcionario/funcionarios/1/rh/reativar/': 'rh_reativar',
+            '/api/funcionario/funcionarios/1/lideranca/avaliacoes-desempenho/': 'lideranca_avaliacoes_desempenho',
+            '/api/funcionario/funcionarios/1/lideranca/planos-carreira/2/editar/': 'lideranca_editar_plano_carreira',
         }
 
         for path, action in expected_routes.items():
             with self.subTest(path=path):
                 match = resolve(path)
 
-                self.assertEqual(match.func.actions['post'], action)
+                method = 'patch' if 'editar' in path else 'get' if 'avaliacoes-desempenho' in path else 'post'
+                self.assertEqual(match.func.actions[method], action)
 
     def test_rh_inativar_altera_status_sem_remover_registro(self):
         funcionario = Funcionario(
@@ -459,6 +496,19 @@ class ContratoFolhaPagamentoMigrationTests(SimpleTestCase):
             [('funcionario', '0004_funcionarioagentedocumento')],
         )
         self.assertEqual(state_operation_names, ['AddField', 'CreateModel'])
+
+
+class PlanoCarreiraCriadorMigrationTests(SimpleTestCase):
+    def test_migration_0006_adiciona_criador_do_plano(self):
+        migration_module = importlib.import_module('apps.funcionario.migrations.0006_plano_carreira_criador')
+        operation = migration_module.Migration.operations[0]
+        sql = operation.database_operations[0].sql
+        state_operation = operation.state_operations[0]
+
+        self.assertIn('ADD COLUMN IF NOT EXISTS fk_id_criador integer NULL', sql)
+        self.assertIn('REFERENCES funcionario(id_funcionario)', sql)
+        self.assertEqual(state_operation.name, 'fk_id_criador')
+        self.assertEqual(state_operation.field.db_column, 'fk_id_criador')
 
 
 class FuncionarioAgenteDocumentoTests(SimpleTestCase):

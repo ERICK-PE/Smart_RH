@@ -74,6 +74,14 @@ class PlanoCarreira(models.Model):
     fk_id_cargo = models.ForeignKey('setor.Cargo', 
                                     models.DO_NOTHING, 
                                     db_column='fk_id_cargo')
+    fk_id_criador = models.ForeignKey(
+        Funcionario,
+        models.DO_NOTHING,
+        db_column='fk_id_criador',
+        related_name='planos_criados',
+        blank=True,
+        null=True,
+    )
     descricao = models.TextField(blank=True, null=True)
     requisitos = models.TextField(blank=True, null=True)
 

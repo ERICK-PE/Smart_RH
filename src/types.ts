@@ -45,6 +45,7 @@ export type FieldConfig = {
     idField: string;
     labelField: string;
     secondaryFields?: string[];
+    hideIdColumn?: boolean;
   };
 };
 

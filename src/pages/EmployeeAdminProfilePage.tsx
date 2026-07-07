@@ -10,8 +10,9 @@ type DisplayField = {
   label: string;
 };
 
+type FieldLayout = 'default' | 'profile';
+
 const profileFields: DisplayField[] = [
-  { key: 'id_funcionario', label: 'ID' },
   { key: 'nome', label: 'Nome' },
   { key: 'cpf', label: 'CPF' },
   { key: 'email', label: 'E-mail' },
@@ -23,7 +24,6 @@ const profileFields: DisplayField[] = [
 ];
 
 const contractFields: DisplayField[] = [
-  { key: 'id_contrato', label: 'ID' },
   { key: 'tipo_contrato', label: 'Tipo' },
   { key: 'salario', label: 'Salario' },
   { key: 'data_inicio', label: 'Data inicio' },
@@ -32,13 +32,11 @@ const contractFields: DisplayField[] = [
 ];
 
 const behaviorFields: DisplayField[] = [
-  { key: 'id_analise', label: 'ID' },
   { key: 'resultado', label: 'Resultado' },
   { key: 'data_analise', label: 'Data analise' },
 ];
 
 const reviewFields: DisplayField[] = [
-  { key: 'id_avaliacao', label: 'ID' },
   { key: 'fk_id_funcionario', label: 'Funcionario' },
   { key: 'fk_id_avaliador', label: 'Avaliador' },
   { key: 'categoria', label: 'Categoria' },
@@ -51,9 +49,22 @@ function asRecord(value: unknown): ApiRecord | null {
   return value && typeof value === 'object' ? (value as ApiRecord) : null;
 }
 
-function FieldGrid({ record, fields }: { record: ApiRecord; fields: DisplayField[] }) {
+function gridClass(layout: FieldLayout) {
+  if (layout === 'profile') return 'grid gap-x-8 gap-y-4 md:grid-cols-2';
+  return 'grid gap-3 md:grid-cols-2 xl:grid-cols-3';
+}
+
+function FieldGrid({
+  record,
+  fields,
+  layout = 'default',
+}: {
+  record: ApiRecord;
+  fields: DisplayField[];
+  layout?: FieldLayout;
+}) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className={gridClass(layout)}>
       {fields.map((field) => (
         <div key={field.key}>
           <p className="text-xs font-semibold uppercase text-muted dark:text-slate-400">{field.label}</p>
@@ -117,7 +128,6 @@ export function EmployeeAdminProfilePage() {
 
   const userAccess = asRecord(profile.data.user_access);
   const accessFields: Array<[string, unknown]> = [
-    ['ID do acesso', userAccess?.id],
     ['E-mail', userAccess?.email],
     ['Ultimo login', userAccess?.last_login],
   ];
@@ -154,7 +164,7 @@ export function EmployeeAdminProfilePage() {
 
       <section className="mb-5 rounded-md border border-line bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
         <h2 className="mb-3 font-semibold text-ink dark:text-slate-100">Dados funcionais</h2>
-        <FieldGrid record={profile.data} fields={profileFields} />
+        <FieldGrid record={profile.data} fields={profileFields} layout="profile" />
       </section>
 
       <div className="grid gap-4 xl:grid-cols-2">

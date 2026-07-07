@@ -243,11 +243,44 @@ class FuncionarioViewSet(
 
         serializer = PlanoCarreiraWriteSerializer(data=data)
         serializer.is_valid(raise_exception=True)
-        plano = serializer.save()
+        save_kwargs = {}
+        if not self.user_has_global_access():
+            save_kwargs['fk_id_criador'] = self.get_request_funcionario()
+        plano = serializer.save(**save_kwargs)
 
         return Response(
             PlanoCarreiraReadSerializer(plano, context=self.get_serializer_context()).data,
             status=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=True,
+        methods=['patch'],
+        url_path='lideranca/planos-carreira/(?P<plano_id>[^/.]+)/editar',
+    )
+    def lideranca_editar_plano_carreira(self, request, pk=None, plano_id: int | None = None):
+        """Edita plano de carreira no escopo permitido a lideranca."""
+        funcionario = self.get_funcionario_setor_lideranca(pk)
+        plano = get_object_or_404(
+            PlanoCarreira,
+            pk=plano_id,
+            fk_id_cargo=funcionario.fk_id_cargo,
+        )
+        self.assert_can_edit_lideranca_plano(plano)
+
+        data = request.data.copy()
+        data['fk_id_cargo'] = funcionario.fk_id_cargo_id
+
+        serializer = PlanoCarreiraWriteSerializer(
+            plano,
+            data=data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        plano = serializer.save()
+
+        return Response(
+            PlanoCarreiraReadSerializer(plano, context=self.get_serializer_context()).data
         )
 
     @action(detail=True, methods=['post'], url_path='lideranca/criar-avaliacao-desempenho')
@@ -273,6 +306,15 @@ class FuncionarioViewSet(
         return Response(
             AvaliacaoDesempenhoReadSerializer(avaliacao, context=self.get_serializer_context()).data,
             status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['get'], url_path='lideranca/avaliacoes-desempenho')
+    def lideranca_avaliacoes_desempenho(self, request, pk=None):
+        """Lista avaliacoes do funcionario no escopo da lideranca."""
+        funcionario = self.get_funcionario_setor_lideranca(pk)
+        return self.paginated_serializer_response(
+            funcionario.avaliacaodesempenho_set.all().order_by('-data_avaliacao', '-id_avaliacao'),
+            AvaliacaoDesempenhoReadSerializer,
         )
 
     @action(

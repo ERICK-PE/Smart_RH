@@ -303,7 +303,9 @@ function RelationPicker({
             <table className="min-w-full text-sm">
               <thead className="bg-panel dark:bg-slate-900">
                 <tr>
-                  <th className="px-3 py-2 text-left font-semibold text-ink dark:text-slate-100">ID</th>
+                  {!relation?.hideIdColumn ? (
+                    <th className="px-3 py-2 text-left font-semibold text-ink dark:text-slate-100">ID</th>
+                  ) : null}
                   <th className="px-3 py-2 text-left font-semibold text-ink dark:text-slate-100">{field.label}</th>
                 </tr>
               </thead>
@@ -319,7 +321,9 @@ function RelationPicker({
                         setOpen(false);
                       }}
                     >
-                      <td className="px-3 py-2 text-muted dark:text-slate-400">{optionValue}</td>
+                      {!relation?.hideIdColumn ? (
+                        <td className="px-3 py-2 text-muted dark:text-slate-400">{optionValue}</td>
+                      ) : null}
                       <td className="px-3 py-2 text-ink dark:text-slate-100">{relationDisplay(row, field)}</td>
                     </tr>
                   );
