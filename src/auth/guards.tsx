@@ -8,7 +8,7 @@ import { PageState } from '../components/PageState';
  */
 export function defaultPathForProfile(profile: UserProfile) {
   if (profile === 'rh_admin') return '/rh/dashboard';
-  if (profile === 'lideranca') return '/lideranca/equipe';
+  if (profile === 'lideranca') return '/funcionario/meus-dados';
   if (profile === 'funcionario') return '/funcionario/meus-dados';
   if (profile === 'candidato') return '/candidato/vagas';
   return '/acesso-negado';

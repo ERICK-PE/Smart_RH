@@ -1,5 +1,27 @@
+from pathlib import Path
+import re
+
 from django.conf import settings
 from django.db import models
+
+
+def sanitize_document_upload_path(folder, filename):
+    """Monta caminho de documento preservando nome base sanitizado."""
+    file_path = Path(filename or 'documento')
+    extension = file_path.suffix.lower()
+    stem = file_path.stem.strip() or 'documento'
+    safe_stem = re.sub(r'[^A-Za-z0-9_.-]+', '_', stem).strip('._-') or 'documento'
+    return f'{folder}/{safe_stem}{extension}'
+
+
+def contrato_upload_path(instance, filename):
+    """Monta caminho logico do arquivo de contrato."""
+    return sanitize_document_upload_path('contratos', filename)
+
+
+def folha_pagamento_upload_path(instance, filename):
+    """Monta caminho logico do arquivo de folha de pagamento."""
+    return sanitize_document_upload_path('folhas_pagamento', filename)
 
 
 class Funcionario(models.Model):
@@ -71,6 +93,12 @@ class Contrato(models.Model):
     salario = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     data_inicio = models.DateField()
     data_fim = models.DateField(blank=True, null=True)
+    arquivo = models.FileField(
+        upload_to=contrato_upload_path,
+        max_length=255,
+        blank=True,
+        null=True,
+    )
 
     def __str__(self):
         """Retorna identificador legivel do contrato sem salario."""
@@ -79,6 +107,21 @@ class Contrato(models.Model):
     class Meta:
         managed = False
         db_table = 'contrato'
+
+
+class FolhaPagamento(models.Model):
+    id_folha = models.AutoField(primary_key=True)
+    fk_id_funcionario = models.ForeignKey(Funcionario, models.DO_NOTHING, db_column='fk_id_funcionario')
+    competencia = models.CharField(max_length=20, blank=True, null=True)
+    arquivo = models.FileField(upload_to=folha_pagamento_upload_path, max_length=255)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        """Retorna identificador legivel da folha sem expor arquivo."""
+        return f'Folha de pagamento {self.id_folha}'
+
+    class Meta:
+        db_table = 'folha_pagamento'
 
 
 def funcionario_agente_documento_upload_path(instance, filename):

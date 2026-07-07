@@ -45,6 +45,9 @@ export function RecruitingProcessPage() {
               <th className="px-4 py-3 text-left">Candidato</th>
               <th className="px-4 py-3 text-left">Vaga</th>
               <th className="px-4 py-3 text-left">Status</th>
+              <th className="px-4 py-3 text-left">Triagem</th>
+              <th className="px-4 py-3 text-left">Pontuacao</th>
+              <th className="px-4 py-3 text-left">Motivo</th>
               <th className="px-4 py-3 text-right">Atualizar</th>
             </tr>
           </thead>
@@ -56,6 +59,9 @@ export function RecruitingProcessPage() {
                   <td className="px-4 py-3"><SensitiveValue value={item.cpf_candidato} /></td>
                   <td className="px-4 py-3"><SensitiveValue value={item.id_vaga} /></td>
                   <td className="px-4 py-3"><SensitiveValue value={item.status_processo} /></td>
+                  <td className="px-4 py-3"><SensitiveValue value={item.triagem_automatica_classificacao} /></td>
+                  <td className="px-4 py-3"><SensitiveValue value={item.triagem_automatica_pontuacao} /></td>
+                  <td className="max-w-xs px-4 py-3"><SensitiveValue value={item.triagem_automatica_motivo} /></td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       <input

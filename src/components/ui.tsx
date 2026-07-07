@@ -123,14 +123,19 @@ function ResourceForm({
 }: {
   fields: FieldConfig[];
   initial?: ApiRecord | null;
-  onSubmit: (data: ApiRecord) => void;
+  onSubmit: (data: ApiRecord | FormData) => void;
   submitting?: boolean;
 }) {
   const [values, setValues] = useState<ApiRecord>({});
+  const hasFileField = fields.some((field) => field.type === 'file');
 
   useEffect(() => {
     const next: ApiRecord = {};
     fields.forEach((field) => {
+      if (field.type === 'file') {
+        next[field.name] = '';
+        return;
+      }
       const value = initial?.[field.name];
       if (field.relation && value && typeof value === 'object') {
         next[field.name] = String((value as ApiRecord)[field.relation.idField] ?? '');
@@ -145,13 +150,25 @@ function ResourceForm({
     setValues((current) => ({ ...current, [name]: value }));
   }
 
+  function updateFile(name: string, file: File | null) {
+    setValues((current) => ({ ...current, [name]: file ?? '' }));
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault();
-    const payload: ApiRecord = {};
+    const payload: ApiRecord | FormData = hasFileField ? new FormData() : {};
     fields.forEach((field) => {
       if (field.readOnly) return;
       const value = values[field.name];
       if (!field.required && value === '') return;
+      if (payload instanceof FormData) {
+        if (value instanceof File) {
+          payload.append(field.name, value);
+        } else if (value !== '' && value !== null && value !== undefined) {
+          payload.append(field.name, String(value));
+        }
+        return;
+      }
       payload[field.name] = value === '' ? null : value;
     });
     onSubmit(payload);
@@ -193,6 +210,15 @@ function ResourceForm({
                 </option>
               ))}
             </select>
+          ) : field.type === 'file' ? (
+            <input
+              className="focus-ring w-full rounded-md border border-line bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              type="file"
+              accept=".pdf,.doc,.docx"
+              required={field.required}
+              disabled={field.readOnly}
+              onChange={(event) => updateFile(field.name, event.target.files?.[0] ?? null)}
+            />
           ) : (
             <input
               className="focus-ring w-full rounded-md border border-line bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
@@ -335,7 +361,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: [config.endpoint] });
 
   const saveMutation = useMutation({
-    mutationFn: async ({ record, payload }: { record?: ApiRecord | null; payload: ApiRecord }) => {
+    mutationFn: async ({ record, payload }: { record?: ApiRecord | null; payload: ApiRecord | FormData }) => {
       const id = record ? getRecordId(record, config.idField) : null;
       if (id) return api.patch(`${config.endpoint}${id}/`, payload);
       return api.post(config.endpoint, payload);

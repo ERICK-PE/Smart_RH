@@ -13,7 +13,6 @@ class SetorReadSerializer(serializers.ModelSerializer):
             'descricao',
         ]
         read_only_fields = fields
-        depth = 1
 
 
 class SetorWriteSerializer(serializers.ModelSerializer):
@@ -61,7 +60,6 @@ class SetorComRelacionamentosReadSerializer(serializers.ModelSerializer):
             'vaga_set',
         ]
         read_only_fields = fields
-        depth = 1
 
 
 class CargoReadSerializer(serializers.ModelSerializer):
@@ -73,7 +71,6 @@ class CargoReadSerializer(serializers.ModelSerializer):
             'descricao',
         ]
         read_only_fields = fields
-        depth = 1
 
 
 class CargoWriteSerializer(serializers.ModelSerializer):
@@ -121,7 +118,6 @@ class CargoComRelacionamentosReadSerializer(serializers.ModelSerializer):
             'planocarreira_set',
         ]
         read_only_fields = fields
-        depth = 1
 
 
 SetorSerializer = SetorReadSerializer

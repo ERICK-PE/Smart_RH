@@ -1,7 +1,7 @@
 from django.db.models import Q
 from django_filters import rest_framework as filters
 
-from apps.funcionario.models import Contrato, Funcionario, PlanoCarreira
+from apps.funcionario.models import Contrato, FolhaPagamento, Funcionario, PlanoCarreira
 
 
 class FuncionarioFilter(filters.FilterSet):
@@ -63,4 +63,23 @@ class ContratoFilter(filters.FilterSet):
             'data_inicio_ate',
             'data_fim_de',
             'data_fim_ate',
+        ]
+
+
+class FolhaPagamentoFilter(filters.FilterSet):
+    funcionario = filters.NumberFilter(field_name='fk_id_funcionario')
+    funcionario_nome = filters.CharFilter(field_name='fk_id_funcionario__nome', lookup_expr='icontains')
+    competencia = filters.CharFilter(field_name='competencia', lookup_expr='icontains')
+    criado_em_de = filters.DateTimeFilter(field_name='criado_em', lookup_expr='gte')
+    criado_em_ate = filters.DateTimeFilter(field_name='criado_em', lookup_expr='lte')
+
+    class Meta:
+        model = FolhaPagamento
+        fields = [
+            'id_folha',
+            'funcionario',
+            'funcionario_nome',
+            'competencia',
+            'criado_em_de',
+            'criado_em_ate',
         ]

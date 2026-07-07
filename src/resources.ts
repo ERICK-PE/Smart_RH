@@ -10,7 +10,6 @@ const cargoRelation = {
   endpoint: '/setor/cargos/',
   idField: 'id_cargo',
   labelField: 'nome',
-  secondaryFields: ['fk_id_setor'],
 };
 
 const funcionarioRelation = {
@@ -42,25 +41,43 @@ export const resources = {
       { name: 'nome', label: 'Nome', required: true },
       { name: 'descricao', label: 'Descricao', type: 'textarea' },
     ],
+    filters: [
+      { name: 'possui_funcionarios', label: 'Possui funcionarios', type: 'select', options: [
+        { label: 'Sim', value: 'true' },
+        { label: 'Nao', value: 'false' },
+      ] },
+      { name: 'possui_vagas', label: 'Possui vagas', type: 'select', options: [
+        { label: 'Sim', value: 'true' },
+        { label: 'Nao', value: 'false' },
+      ] },
+    ],
     allowCreate: true,
     allowEdit: true,
     allowDelete: true,
   },
   cargos: {
     title: 'Cargos',
-    description: 'Gestao dos cargos, suas descricoes e o setor responsavel.',
+    description: 'Gestao dos cargos e suas descricoes.',
     endpoint: '/setor/cargos/',
     idField: 'id_cargo',
     columns: [
       { key: 'id_cargo', label: 'ID' },
       { key: 'nome', label: 'Nome' },
-      { key: 'fk_id_setor', label: 'Setor' },
       { key: 'descricao', label: 'Descricao' },
     ],
     fields: [
       { name: 'nome', label: 'Nome', required: true },
-      { name: 'fk_id_setor', label: 'Setor', required: true, relation: setorRelation },
       { name: 'descricao', label: 'Descricao', type: 'textarea' },
+    ],
+    filters: [
+      { name: 'possui_funcionarios', label: 'Possui funcionarios', type: 'select', options: [
+        { label: 'Sim', value: 'true' },
+        { label: 'Nao', value: 'false' },
+      ] },
+      { name: 'possui_planos_carreira', label: 'Possui planos', type: 'select', options: [
+        { label: 'Sim', value: 'true' },
+        { label: 'Nao', value: 'false' },
+      ] },
     ],
     allowCreate: true,
     allowEdit: true,
@@ -74,17 +91,15 @@ export const resources = {
     columns: [
       { key: 'id_funcionario', label: 'ID' },
       { key: 'nome', label: 'Nome' },
-      { key: 'username', label: 'Usuario' },
+      { key: 'user', label: 'Usuario' },
       { key: 'cpf', label: 'CPF' },
       { key: 'email', label: 'E-mail' },
+      { key: 'telefone', label: 'Telefone' },
       { key: 'fk_id_setor', label: 'Setor' },
       { key: 'fk_id_cargo', label: 'Cargo' },
       { key: 'status', label: 'Status' },
-      { key: 'is_active', label: 'Acesso ativo' },
     ],
     fields: [
-      { name: 'username', label: 'Usuario de acesso', required: true },
-      { name: 'password', label: 'Senha inicial ou nova senha', type: 'password' },
       { name: 'nome', label: 'Nome', required: true },
       { name: 'cpf', label: 'CPF', required: true },
       { name: 'email', label: 'E-mail', type: 'email' },
@@ -99,16 +114,21 @@ export const resources = {
           { label: 'Inativo', value: 'inativo' },
         ],
       },
+      { name: 'fk_id_setor', label: 'Setor', required: true, relation: setorRelation },
+      { name: 'fk_id_cargo', label: 'Cargo', required: true, relation: cargoRelation },
+    ],
+    filters: [
       {
-        name: 'is_staff',
-        label: 'Administrador',
+        name: 'status',
+        label: 'Status',
         type: 'select',
         options: [
-          { label: 'Nao', value: 'false' },
-          { label: 'Sim', value: 'true' },
+          { label: 'Ativo', value: 'ativo' },
+          { label: 'Inativo', value: 'inativo' },
         ],
       },
-      { name: 'fk_id_cargo', label: 'Cargo', required: true, relation: cargoRelation },
+      { name: 'setor', label: 'ID setor' },
+      { name: 'cargo', label: 'ID cargo' },
     ],
     allowCreate: true,
     allowEdit: true,
@@ -126,6 +146,7 @@ export const resources = {
       { key: 'salario', label: 'Salario' },
       { key: 'data_inicio', label: 'Inicio' },
       { key: 'data_fim', label: 'Fim' },
+      { key: 'arquivo', label: 'Arquivo' },
     ],
     fields: [
       { name: 'fk_id_funcionario', label: 'Funcionario', required: true, relation: funcionarioRelation },
@@ -133,6 +154,38 @@ export const resources = {
       { name: 'salario', label: 'Salario', type: 'number' },
       { name: 'data_inicio', label: 'Data de inicio', type: 'date', required: true },
       { name: 'data_fim', label: 'Data de fim', type: 'date' },
+      { name: 'arquivo', label: 'Arquivo PDF ou Word', type: 'file' },
+    ],
+    filters: [
+      { name: 'funcionario', label: 'ID funcionario' },
+      { name: 'funcionario_nome', label: 'Nome funcionario' },
+      { name: 'tipo_contrato', label: 'Tipo contrato' },
+    ],
+    allowCreate: true,
+    allowEdit: true,
+    allowDelete: true,
+  },
+  folhasPagamento: {
+    title: 'Folhas de pagamento',
+    description: 'Upload e consulta de folhas de pagamento em PDF ou Word.',
+    endpoint: '/funcionario/folhas-pagamento/',
+    idField: 'id_folha',
+    columns: [
+      { key: 'id_folha', label: 'ID' },
+      { key: 'fk_id_funcionario', label: 'Funcionario' },
+      { key: 'competencia', label: 'Competencia' },
+      { key: 'arquivo', label: 'Arquivo' },
+      { key: 'criado_em', label: 'Criado em' },
+    ],
+    fields: [
+      { name: 'fk_id_funcionario', label: 'Funcionario', required: true, relation: funcionarioRelation },
+      { name: 'competencia', label: 'Competencia' },
+      { name: 'arquivo', label: 'Arquivo PDF ou Word', type: 'file', required: true },
+    ],
+    filters: [
+      { name: 'funcionario', label: 'ID funcionario' },
+      { name: 'funcionario_nome', label: 'Nome funcionario' },
+      { name: 'competencia', label: 'Competencia' },
     ],
     allowCreate: true,
     allowEdit: true,
@@ -153,6 +206,11 @@ export const resources = {
       { name: 'fk_id_cargo', label: 'Cargo', required: true, relation: cargoRelation },
       { name: 'descricao', label: 'Descricao', type: 'textarea' },
       { name: 'requisitos', label: 'Requisitos', type: 'textarea' },
+    ],
+    filters: [
+      { name: 'cargo', label: 'ID cargo' },
+      { name: 'cargo_nome', label: 'Nome cargo' },
+      { name: 'texto', label: 'Descricao/requisitos' },
     ],
     allowCreate: true,
     allowEdit: true,
@@ -179,6 +237,13 @@ export const resources = {
       { name: 'comentario', label: 'Comentario', type: 'textarea' },
       { name: 'data_avaliacao', label: 'Data da avaliacao', type: 'date', required: true },
     ],
+    filters: [
+      { name: 'funcionario', label: 'ID funcionario' },
+      { name: 'avaliador', label: 'ID avaliador' },
+      { name: 'categoria', label: 'Categoria' },
+      { name: 'nota_min', label: 'Nota minima' },
+      { name: 'nota_max', label: 'Nota maxima' },
+    ],
     allowCreate: true,
     allowEdit: true,
     allowDelete: true,
@@ -199,6 +264,10 @@ export const resources = {
       { name: 'resultado', label: 'Resultado', type: 'textarea' },
       { name: 'data_analise', label: 'Data da analise', type: 'date' },
     ],
+    filters: [
+      { name: 'funcionario', label: 'ID funcionario' },
+      { name: 'funcionario_nome', label: 'Nome funcionario' },
+    ],
     allowCreate: true,
     allowEdit: true,
     allowDelete: true,
@@ -218,7 +287,7 @@ export const resources = {
       { key: 'fk_id_setor', label: 'Setor' },
     ],
     fields: [
-      { name: 'titulo', label: 'Titulo', required: true },
+      { name: 'titulo', label: 'Titulo' },
       { name: 'descricao', label: 'Descricao livre da vaga', type: 'textarea' },
       { name: 'requisitos', label: 'Requisitos recomendados para triagem', type: 'textarea' },
       {
@@ -237,6 +306,10 @@ export const resources = {
         type: 'select',
         options: vagaStatusOptions,
       },
+      { name: 'setor', label: 'ID setor' },
+      { name: 'setor_nome', label: 'Nome setor' },
+      { name: 'texto', label: 'Titulo/descricao/requisitos' },
+      { name: 'requisitos', label: 'Requisitos contem' },
     ],
     detailSections: [
       {
@@ -281,6 +354,17 @@ export const resources = {
       { key: 'curriculo', label: 'Curriculo' },
     ],
     fields: [],
+    filters: [
+      {
+        name: 'possui_curriculo',
+        label: 'Possui curriculo',
+        type: 'select',
+        options: [
+          { label: 'Sim', value: 'true' },
+          { label: 'Nao', value: 'false' },
+        ],
+      },
+    ],
     allowCreate: false,
     allowEdit: false,
     allowDelete: true,

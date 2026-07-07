@@ -13,17 +13,35 @@ from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.urls import resolve
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import MultiPartParser
 
 from apps.api_mixins import FuncionarioComumAccessMixin, RHAdminAccessMixin
 from apps.funcionario.api.filters import FuncionarioFilter
 from apps.funcionario.api.test_views import agente_test_page, funcionario_test_page
 from apps.funcionario.api.serializers import (
+    ContratoReadSerializer,
+    ContratoWriteSerializer,
+    FolhaPagamentoReadSerializer,
+    FolhaPagamentoWriteSerializer,
     FuncionarioAgenteDocumentoWriteSerializer,
     FuncionarioReadSerializer,
     FuncionarioWriteSerializer,
 )
-from apps.funcionario.api.views import FuncionarioAgenteDocumentoViewSet, FuncionarioViewSet
-from apps.funcionario.models import Funcionario, FuncionarioAgenteDocumento, funcionario_agente_documento_upload_path
+from apps.funcionario.api.views import (
+    ContratoViewSet,
+    FolhaPagamentoViewSet,
+    FuncionarioAgenteDocumentoViewSet,
+    FuncionarioViewSet,
+)
+from apps.funcionario.models import (
+    Contrato,
+    FolhaPagamento,
+    Funcionario,
+    FuncionarioAgenteDocumento,
+    contrato_upload_path,
+    folha_pagamento_upload_path,
+    funcionario_agente_documento_upload_path,
+)
 from apps.funcionario.services.agente_documentos import (
     answer_question_with_openai,
     delete_important_document_file,
@@ -259,6 +277,7 @@ class FuncionarioStatusAPITests(SimpleTestCase):
 
         with (
             patch('apps.funcionario.api.views.Contrato.objects.count', return_value=3),
+            patch('apps.funcionario.api.views.FolhaPagamento.objects.count', return_value=5),
             patch('apps.funcionario.api.views.PlanoCarreira.objects.count', return_value=4),
         ):
             response = viewset.rh_indicadores(request)
@@ -266,6 +285,7 @@ class FuncionarioStatusAPITests(SimpleTestCase):
         viewset.filter_queryset.assert_called_once_with('base-queryset')
         self.assertEqual(response.data['total_funcionarios'], 2)
         self.assertEqual(response.data['total_contratos'], 3)
+        self.assertEqual(response.data['total_folhas_pagamento'], 5)
         self.assertEqual(response.data['total_planos_carreira'], 4)
         self.assertEqual(response.data['funcionarios_por_status'], {Funcionario.STATUS_ATIVO: 2})
 
@@ -290,6 +310,155 @@ class FuncionarioStatusMigrationTests(SimpleTestCase):
             migration_module.Migration.dependencies,
             [('funcionario', '0002_add_funcionario_user')],
         )
+
+
+class ContratoFolhaPagamentoUploadTests(SimpleTestCase):
+    def make_file(self, filename='documento.pdf', content_type='application/pdf'):
+        return SimpleUploadedFile(filename, b'conteudo', content_type=content_type)
+
+    def make_staff_request(self, data=None):
+        return SimpleNamespace(
+            data=data or {},
+            user=SimpleNamespace(
+                is_authenticated=True,
+                is_staff=True,
+                is_superuser=False,
+                pk=1,
+            ),
+        )
+
+    def test_upload_paths_usam_pastas_proprias_sem_cpf(self):
+        self.assertEqual(
+            contrato_upload_path(SimpleNamespace(), '../../Contrato Final.PDF'),
+            'contratos/Contrato_Final.pdf',
+        )
+        self.assertEqual(
+            folha_pagamento_upload_path(SimpleNamespace(), '../../Folha Junho.DOCX'),
+            'folhas_pagamento/Folha_Junho.docx',
+        )
+
+    def test_serializers_aceitam_pdf_doc_docx_e_rejeitam_txt(self):
+        valid_files = [
+            ('contrato.pdf', 'application/pdf'),
+            ('contrato.doc', 'application/msword'),
+            (
+                'contrato.docx',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ),
+        ]
+
+        for filename, content_type in valid_files:
+            with self.subTest(filename=filename):
+                ContratoWriteSerializer().fields['arquivo'].run_validation(self.make_file(filename, content_type))
+                FolhaPagamentoWriteSerializer().fields['arquivo'].run_validation(self.make_file(filename, content_type))
+
+        with self.assertRaises(serializers.ValidationError):
+            ContratoWriteSerializer().fields['arquivo'].run_validation(self.make_file('contrato.txt', 'text/plain'))
+
+        with self.assertRaises(serializers.ValidationError):
+            FolhaPagamentoWriteSerializer().fields['arquivo'].run_validation(self.make_file('folha.txt', 'text/plain'))
+
+    def test_read_serializers_retorna_caminho_para_contexto_rh(self):
+        request = self.make_staff_request()
+        view = FuncionarioViewSet()
+        view.request = request
+        contrato = Contrato(
+            id_contrato=1,
+            arquivo='contratos/contrato.pdf',
+            fk_id_funcionario=Funcionario(id_funcionario=1),
+        )
+        folha = FolhaPagamento(
+            id_folha=1,
+            arquivo='folhas_pagamento/folha.pdf',
+            fk_id_funcionario=Funcionario(id_funcionario=1),
+        )
+        context = {'request': request, 'view': view}
+
+        self.assertEqual(ContratoReadSerializer(contrato, context=context).data['arquivo'], 'contratos/contrato.pdf')
+        self.assertEqual(
+            FolhaPagamentoReadSerializer(folha, context=context).data['arquivo'],
+            'folhas_pagamento/folha.pdf',
+        )
+
+    def test_rotas_de_upload_e_consulta_resolvem(self):
+        expected_routes = {
+            '/api/funcionario/folhas-pagamento/': ('get', 'list'),
+            '/api/funcionario/folhas-pagamento/1/': ('get', 'retrieve'),
+            '/api/funcionario/funcionarios/1/rh/folha-pagamento/': ('post', 'rh_folha_pagamento'),
+            '/api/funcionario/funcionarios/1/folha-pagamento/': ('get', 'folha_pagamento'),
+            '/api/funcionario/contratos/1/rh/arquivo/': ('post', 'rh_arquivo'),
+        }
+
+        for path, (method, action) in expected_routes.items():
+            with self.subTest(path=path):
+                match = resolve(path)
+
+                self.assertEqual(match.func.actions[method], action)
+
+    def test_upload_viewsets_aceitam_multipart(self):
+        self.assertIn(MultiPartParser, FuncionarioViewSet.parser_classes)
+        self.assertIn(MultiPartParser, ContratoViewSet.parser_classes)
+        self.assertIn(MultiPartParser, FolhaPagamentoViewSet.parser_classes)
+
+    def test_rh_folha_pagamento_define_funcionario_e_cria_registro(self):
+        funcionario = Funcionario(id_funcionario=7, nome='Maria', data_admissao='2024-01-01')
+        folha = FolhaPagamento(id_folha=1, fk_id_funcionario=funcionario, arquivo='folhas_pagamento/folha.pdf')
+        request = self.make_staff_request({
+            'competencia': '2026-06',
+            'arquivo': self.make_file('folha.pdf', 'application/pdf'),
+        })
+        viewset = FuncionarioViewSet()
+        viewset.request = request
+        viewset.get_object = Mock(return_value=funcionario)
+        viewset.get_serializer_context = Mock(return_value={'request': request, 'view': viewset})
+
+        serializer = Mock()
+        serializer.is_valid = Mock()
+        serializer.save.return_value = folha
+
+        with (
+            patch('apps.funcionario.api.views.FolhaPagamentoWriteSerializer', return_value=serializer) as write_mock,
+            patch(
+                'apps.funcionario.api.views.FolhaPagamentoReadSerializer',
+                return_value=SimpleNamespace(data={'id_folha': 1, 'arquivo': 'folhas_pagamento/folha.pdf'}),
+            ),
+        ):
+            response = viewset.rh_folha_pagamento(request, pk='7')
+
+        payload = write_mock.call_args.kwargs['data']
+        self.assertEqual(payload['fk_id_funcionario'], 7)
+        serializer.is_valid.assert_called_once_with(raise_exception=True)
+        serializer.save.assert_called_once_with()
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['arquivo'], 'folhas_pagamento/folha.pdf')
+
+    def test_rh_arquivo_contrato_exige_arquivo(self):
+        request = self.make_staff_request({})
+        viewset = ContratoViewSet()
+        viewset.request = request
+        viewset.get_object = Mock(return_value=Contrato(id_contrato=1))
+
+        response = viewset.rh_arquivo(request, pk='1')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('arquivo', response.data)
+
+
+class ContratoFolhaPagamentoMigrationTests(SimpleTestCase):
+    def test_migration_0005_adiciona_arquivo_contrato_e_cria_folha(self):
+        migration_module = importlib.import_module('apps.funcionario.migrations.0005_contrato_arquivo_folha_pagamento')
+        operation = migration_module.Migration.operations[0]
+        sql = operation.database_operations[0].sql
+        state_operation_names = [state_operation.__class__.__name__ for state_operation in operation.state_operations]
+
+        self.assertIn('ADD COLUMN IF NOT EXISTS arquivo varchar(255)', sql)
+        self.assertIn('CREATE TABLE IF NOT EXISTS folha_pagamento', sql)
+        self.assertIn('fk_id_funcionario integer NOT NULL', sql)
+        self.assertEqual(
+            migration_module.Migration.dependencies,
+            [('funcionario', '0004_funcionarioagentedocumento')],
+        )
+        self.assertEqual(state_operation_names, ['AddField', 'CreateModel'])
 
 
 class FuncionarioAgenteDocumentoTests(SimpleTestCase):

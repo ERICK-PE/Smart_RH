@@ -6,9 +6,10 @@ from apps.avaliacao.api.filters import AnaliseComportamentalFilter, AvaliacaoDes
 from apps.avaliacao.api.views import AnaliseComportamentalViewSet, AvaliacaoDesempenhoViewSet
 from apps.candidato_vaga.api.filters import CandidatoFilter, CandidatoVagaFilter, VagaFilter
 from apps.candidato_vaga.api.views import CandidatoVagaViewSet, CandidatoViewSet, VagaViewSet
-from apps.funcionario.api.filters import ContratoFilter, FuncionarioFilter, PlanoCarreiraFilter
+from apps.funcionario.api.filters import ContratoFilter, FolhaPagamentoFilter, FuncionarioFilter, PlanoCarreiraFilter
 from apps.funcionario.api.views import (
     ContratoViewSet,
+    FolhaPagamentoViewSet,
     FuncionarioAgenteDocumentoViewSet,
     FuncionarioViewSet,
     PlanoCarreiraViewSet,
@@ -46,6 +47,7 @@ class APIFilterConfigurationTests(SimpleTestCase):
             FuncionarioViewSet,
             PlanoCarreiraViewSet,
             ContratoViewSet,
+            FolhaPagamentoViewSet,
             FuncionarioAgenteDocumentoViewSet,
             CandidatoViewSet,
             VagaViewSet,
@@ -66,6 +68,7 @@ class APIFilterConfigurationTests(SimpleTestCase):
             FuncionarioViewSet: FuncionarioFilter,
             PlanoCarreiraViewSet: PlanoCarreiraFilter,
             ContratoViewSet: ContratoFilter,
+            FolhaPagamentoViewSet: FolhaPagamentoFilter,
             CandidatoViewSet: CandidatoFilter,
             VagaViewSet: VagaFilter,
             CandidatoVagaViewSet: CandidatoVagaFilter,
@@ -84,6 +87,7 @@ class APIFilterConfigurationTests(SimpleTestCase):
             FuncionarioFilter: {'status', 'setor_nome', 'cargo_nome', 'data_admissao_inicio', 'data_admissao_fim'},
             PlanoCarreiraFilter: {'texto', 'cargo_nome'},
             ContratoFilter: {'funcionario_nome', 'data_inicio_de', 'data_inicio_ate'},
+            FolhaPagamentoFilter: {'funcionario_nome', 'competencia', 'criado_em_de', 'criado_em_ate'},
             CandidatoFilter: {'possui_curriculo'},
             VagaFilter: {'status', 'texto', 'setor_nome', 'com_candidaturas'},
             CandidatoVagaFilter: {'candidato_nome', 'vaga_titulo'},

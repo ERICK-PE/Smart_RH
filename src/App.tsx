@@ -13,6 +13,7 @@ import {
   MyCareerPlanPage,
   MyContractsPage,
   MyDataPage,
+  MyPayslipsPage,
   MyReviewsPage,
 } from './pages/EmployeeSelfPages';
 import {
@@ -66,6 +67,7 @@ export function App() {
             <Route path="/rh/funcionarios" element={<ResourcePage config={resources.funcionarios} />} />
             <Route path="/rh/funcionarios/:id" element={<EmployeeAdminProfilePage />} />
             <Route path="/rh/contratos" element={<ResourcePage config={resources.contratos} />} />
+            <Route path="/rh/folhas-pagamento" element={<ResourcePage config={resources.folhasPagamento} />} />
             <Route path="/rh/planos-carreira" element={<ResourcePage config={resources.planos} />} />
             <Route path="/rh/avaliacoes" element={<ResourcePage config={resources.avaliacoes} />} />
             <Route path="/rh/analises-comportamentais" element={<ResourcePage config={resources.analises} />} />
@@ -79,11 +81,12 @@ export function App() {
             <Route path="/lideranca/funcionarios/:id" element={<LeadershipEmployeeDetailPage />} />
           </Route>
 
-          <Route element={<ProfileRoute profiles={['funcionario']} />}>
+          <Route element={<ProfileRoute profiles={['funcionario', 'lideranca']} />}>
             <Route path="/funcionario/meus-dados" element={<MyDataPage />} />
             <Route path="/funcionario/meus-contratos" element={<MyContractsPage />} />
             <Route path="/funcionario/meu-plano-carreira" element={<MyCareerPlanPage />} />
             <Route path="/funcionario/minhas-avaliacoes" element={<MyReviewsPage />} />
+            <Route path="/funcionario/minha-folha" element={<MyPayslipsPage />} />
           </Route>
 
           <Route element={<ProfileRoute profiles={['candidato']} />}>

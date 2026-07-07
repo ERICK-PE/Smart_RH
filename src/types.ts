@@ -36,7 +36,7 @@ export type ApiRecord = Record<string, unknown>;
 export type FieldConfig = {
   name: string;
   label: string;
-  type?: 'text' | 'textarea' | 'number' | 'date' | 'password' | 'email' | 'select';
+  type?: 'text' | 'textarea' | 'number' | 'date' | 'password' | 'email' | 'select' | 'file';
   required?: boolean;
   readOnly?: boolean;
   options?: Array<{ label: string; value: string }>;

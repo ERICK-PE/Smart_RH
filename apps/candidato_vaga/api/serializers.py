@@ -32,6 +32,47 @@ def get_file_name(value):
     return getattr(value, 'name', value) or None
 
 
+def safe_user_summary(user, include_email=False):
+    """Retorna resumo minimo do auth_user sem flags/permissoes internas."""
+    if not user:
+        return None
+
+    data = {
+        'id': getattr(user, 'pk', None),
+        'username': getattr(user, 'username', None),
+    }
+    if include_email:
+        data['email'] = getattr(user, 'email', None)
+    return data
+
+
+def setor_summary(setor):
+    """Retorna dados publicos minimos de setor."""
+    if setor is None:
+        return None
+
+    return {
+        'id_setor': getattr(setor, 'id_setor', None),
+        'nome': getattr(setor, 'nome', None),
+    }
+
+
+def vaga_summary(vaga):
+    """Retorna resumo publico de vaga sem candidaturas aninhadas."""
+    if vaga is None:
+        return None
+
+    return {
+        'id_vaga': getattr(vaga, 'id_vaga', None),
+        'titulo': getattr(vaga, 'titulo', None),
+        'descricao': getattr(vaga, 'descricao', None),
+        'requisitos': getattr(vaga, 'requisitos', None),
+        'data_publicacao': getattr(vaga, 'data_publicacao', None),
+        'status': getattr(vaga, 'status', None),
+        'fk_id_setor': setor_summary(getattr(vaga, 'fk_id_setor', None)),
+    }
+
+
 def validate_curriculo_upload(value):
     """Valida upload de curriculo por extensao, tipo e tamanho."""
     if value in [None, '']:
@@ -130,6 +171,7 @@ def can_view_candidato_sensitive(serializer, candidato):
 
 class CandidatoReadSerializer(serializers.ModelSerializer):
     cpf_candidato = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
     telefone = serializers.SerializerMethodField()
     curriculo = serializers.SerializerMethodField()
@@ -145,7 +187,10 @@ class CandidatoReadSerializer(serializers.ModelSerializer):
             'curriculo',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_user(self, obj) -> dict | None:
+        """Retorna usuario vinculado sem flags/permissoes internas."""
+        return safe_user_summary(obj.user, include_email=can_view_candidato_sensitive(self, obj))
 
     def get_cpf_candidato(self, obj) -> str | None:
         """Retorna CPF real ou mascarado conforme permissao."""
@@ -325,6 +370,7 @@ class CandidatoRegistrationSerializer(serializers.Serializer):
 
 class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
     cpf_candidato = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
     telefone = serializers.SerializerMethodField()
     curriculo = serializers.SerializerMethodField()
@@ -341,7 +387,10 @@ class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
             'candidatovaga_set',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_user(self, obj) -> dict | None:
+        """Retorna usuario vinculado sem flags/permissoes internas."""
+        return safe_user_summary(obj.user, include_email=can_view_candidato_sensitive(self, obj))
 
     def get_cpf_candidato(self, obj) -> str | None:
         """Retorna CPF real ou mascarado em leitura com vagas."""
@@ -369,6 +418,8 @@ class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
 
 
 class VagaReadSerializer(serializers.ModelSerializer):
+    fk_id_setor = serializers.SerializerMethodField()
+
     class Meta:
         model = Vaga
         fields = [
@@ -381,7 +432,10 @@ class VagaReadSerializer(serializers.ModelSerializer):
             'fk_id_setor',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_fk_id_setor(self, obj) -> dict | None:
+        """Retorna resumo seguro do setor."""
+        return setor_summary(obj.fk_id_setor)
 
 
 class VagaWriteSerializer(serializers.ModelSerializer):
@@ -445,6 +499,8 @@ class VagaWriteSerializer(serializers.ModelSerializer):
 
 
 class VagaComCandidatosReadSerializer(serializers.ModelSerializer):
+    fk_id_setor = serializers.SerializerMethodField()
+
     class Meta:
         model = Vaga
         fields = [
@@ -458,11 +514,15 @@ class VagaComCandidatosReadSerializer(serializers.ModelSerializer):
             'candidatovaga_set',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_fk_id_setor(self, obj) -> dict | None:
+        """Retorna resumo seguro do setor."""
+        return setor_summary(obj.fk_id_setor)
 
 
 class CandidatoVagaReadSerializer(serializers.ModelSerializer):
     cpf_candidato = serializers.SerializerMethodField()
+    id_vaga = serializers.SerializerMethodField()
     status_vaga = serializers.CharField(source='id_vaga.status', read_only=True)
 
     class Meta:
@@ -474,7 +534,10 @@ class CandidatoVagaReadSerializer(serializers.ModelSerializer):
             'status_processo',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_id_vaga(self, obj) -> dict | None:
+        """Retorna resumo seguro da vaga vinculada."""
+        return vaga_summary(obj.id_vaga)
 
     def get_cpf_candidato(self, obj) -> str | None:
         """Retorna CPF real ou mascarado do vinculo candidato-vaga."""

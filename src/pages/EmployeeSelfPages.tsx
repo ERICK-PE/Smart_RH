@@ -93,6 +93,21 @@ export function MyContractsPage() {
 }
 
 /**
+ * Mostra folhas de pagamento do proprio funcionario autenticado.
+ */
+export function MyPayslipsPage() {
+  const { user } = useAuth();
+  if (!user?.funcionario_id) return <PageState title="Usuario sem vinculo de funcionario" variant="error" />;
+  return (
+    <SelfListPage
+      title="Minha folha de pagamento"
+      description="Arquivos de folha de pagamento vinculados ao seu cadastro funcional."
+      endpoint={`/funcionario/funcionarios/${user.funcionario_id}/folha-pagamento/`}
+    />
+  );
+}
+
+/**
  * Mostra planos de carreira relacionados ao cargo do funcionario.
  */
 export function MyCareerPlanPage() {
