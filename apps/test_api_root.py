@@ -20,6 +20,7 @@ class APIRootRoutingTests(SimpleTestCase):
         self.assertIn('/api/funcionario/', data['endpoints']['funcionario'])
         self.assertIn('/api/avaliacao/', data['endpoints']['avaliacao'])
         self.assertIn('/api/candidato/', data['endpoints']['candidato'])
+        self.assertIn('/api/dashboard/rh/', data['endpoints']['dashboard'])
 
     def test_api_includes_apontam_para_routers_dos_apps(self):
         self.assertEqual(resolve('/api/').url_name, 'smart-rh-api-root')
@@ -27,6 +28,7 @@ class APIRootRoutingTests(SimpleTestCase):
         self.assertEqual(resolve('/api/funcionario/funcionarios/').url_name, 'funcionario-list')
         self.assertEqual(resolve('/api/avaliacao/avaliacoes-desempenho/').url_name, 'avaliacao-desempenho-list')
         self.assertEqual(resolve('/api/candidato/vagas/').url_name, 'vaga-list')
+        self.assertEqual(resolve('/api/dashboard/rh/').url_name, 'dashboard-rh')
 
     def test_apps_nao_ficam_expostas_fora_do_prefixo_api(self):
         for path in ['/setor/setores/', '/funcionario/funcionarios/', '/avaliacao/avaliacoes-desempenho/', '/candidato/vagas/']:

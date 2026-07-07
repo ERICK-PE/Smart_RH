@@ -270,7 +270,6 @@ function RelationPicker({
   disabled?: boolean;
   onChange: (value: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const relation = field.relation;
   const query = useQuery({
     queryKey: ['relation-options', relation?.endpoint],
@@ -278,62 +277,61 @@ function RelationPicker({
     enabled: Boolean(relation),
   });
   const rows = query.data?.results ?? [];
-  const selected = rows.find((row) => String(row[relation?.idField ?? '']) === value);
 
   return (
-    <div className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
-        className="focus-ring flex w-full items-center justify-between rounded-md border border-line bg-white px-3 py-2 text-left text-sm text-ink disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      >
-        <span>{selected ? relationDisplay(selected, field) : 'Selecione'}</span>
-        <span className="text-xs text-muted dark:text-slate-400">abrir lista</span>
-      </button>
-      <input className="sr-only" tabIndex={-1} value={value} required={required} onChange={() => undefined} />
+    <select
+      className="focus-ring w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      value={value}
+      required={required}
+      disabled={disabled || query.isLoading}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="">Selecione</option>
+      {rows.map((row) => {
+        const optionValue = String(row[relation?.idField ?? '']);
+        return (
+          <option key={optionValue} value={optionValue}>
+            {relationDisplay(row, field)}
+          </option>
+        );
+      })}
+    </select>
+  );
+}
 
-      {open ? (
-        <div className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-md border border-line bg-white shadow-soft dark:border-slate-700 dark:bg-slate-950">
-          {query.isLoading ? (
-            <div className="px-3 py-3 text-sm text-muted dark:text-slate-400">Carregando opções...</div>
-          ) : rows.length === 0 ? (
-            <div className="px-3 py-3 text-sm text-muted dark:text-slate-400">Nenhum registro disponível.</div>
-          ) : (
-            <table className="min-w-full text-sm">
-              <thead className="bg-panel dark:bg-slate-900">
-                <tr>
-                  {!relation?.hideIdColumn ? (
-                    <th className="px-3 py-2 text-left font-semibold text-ink dark:text-slate-100">ID</th>
-                  ) : null}
-                  <th className="px-3 py-2 text-left font-semibold text-ink dark:text-slate-100">{field.label}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line dark:divide-slate-700">
-                {rows.map((row) => {
-                  const optionValue = String(row[relation?.idField ?? '']);
-                  return (
-                    <tr
-                      key={optionValue}
-                      className="cursor-pointer hover:bg-panel dark:hover:bg-slate-900"
-                      onClick={() => {
-                        onChange(optionValue);
-                        setOpen(false);
-                      }}
-                    >
-                      {!relation?.hideIdColumn ? (
-                        <td className="px-3 py-2 text-muted dark:text-slate-400">{optionValue}</td>
-                      ) : null}
-                      <td className="px-3 py-2 text-ink dark:text-slate-100">{relationDisplay(row, field)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      ) : null}
-    </div>
+function RelationFilterSelect({
+  filter,
+  value,
+  onChange,
+}: {
+  filter: NonNullable<ResourceConfig['filters']>[number];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const relation = filter.relation;
+  const query = useQuery({
+    queryKey: ['relation-options', relation?.endpoint],
+    queryFn: () => listResource<ApiRecord>(relation?.endpoint ?? '', { page: 1, page_size: 100 }),
+    enabled: Boolean(relation),
+  });
+
+  return (
+    <select
+      className="focus-ring w-full rounded-md border border-line bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      value={value}
+      disabled={query.isLoading}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="">Todos</option>
+      {(query.data?.results ?? []).map((row) => {
+        const optionValue = String(row[relation?.idField ?? '']);
+        return (
+          <option key={optionValue} value={optionValue}>
+            {displayValue(row[relation?.labelField ?? ''])}
+          </option>
+        );
+      })}
+    </select>
   );
 }
 
@@ -422,7 +420,16 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
         {config.filters?.map((filter) => (
           <label key={filter.name} className="min-w-48">
             <span className="mb-1 block text-xs font-semibold uppercase text-muted dark:text-slate-400">{filter.label}</span>
-            {filter.type === 'select' ? (
+            {filter.relation ? (
+              <RelationFilterSelect
+                filter={filter}
+                value={filters[filter.name] ?? ''}
+                onChange={(value) => {
+                  setFilters((current) => ({ ...current, [filter.name]: value }));
+                  setPage(1);
+                }}
+              />
+            ) : filter.type === 'select' ? (
               <select
                 className="focus-ring w-full rounded-md border border-line bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={filters[filter.name] ?? ''}

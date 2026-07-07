@@ -54,6 +54,7 @@ export type ResourceFilterConfig = {
   label: string;
   type?: 'select' | 'text';
   options?: Array<{ label: string; value: string }>;
+  relation?: FieldConfig['relation'];
 };
 
 export type ResourceColumnConfig = {

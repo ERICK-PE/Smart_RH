@@ -74,9 +74,12 @@ export function LeadershipTeamPage() {
   if (query.isLoading) return <PageState title="Carregando equipe" />;
   if (query.isError) return <PageState title="Nao foi possivel carregar a equipe" variant="error" />;
 
+  const sectorName = asText(query.data?.results?.[0]?.fk_id_setor);
+  const pageTitle = sectorName === 'Nao informado' ? 'Setor' : sectorName;
+
   return (
     <section>
-      <PageHeader title="Equipe da lideranca" description="Funcionarios disponiveis conforme escopo do backend." />
+      <PageHeader title={pageTitle} description="Funcionarios disponiveis conforme escopo do backend." />
       <div className="overflow-hidden rounded-md border border-line bg-white dark:border-slate-700 dark:bg-slate-950">
         <table className="min-w-full divide-y divide-line text-sm">
           <thead className="bg-panel dark:bg-slate-900">

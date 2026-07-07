@@ -73,8 +73,7 @@ export const resources = {
       { name: 'descricao', label: 'Descricao', type: 'textarea' },
     ],
     filters: [
-      { name: 'setor', label: 'ID setor' },
-      { name: 'setor_nome', label: 'Nome setor' },
+      { name: 'setor', label: 'Setor', relation: setorRelation },
       { name: 'possui_funcionarios', label: 'Possui funcionarios', type: 'select', options: [
         { label: 'Sim', value: 'true' },
         { label: 'Nao', value: 'false' },
@@ -305,8 +304,7 @@ export const resources = {
         type: 'select',
         options: vagaStatusOptions,
       },
-      { name: 'setor', label: 'ID setor' },
-      { name: 'setor_nome', label: 'Nome setor' },
+      { name: 'setor', label: 'Setor', relation: setorRelation },
       { name: 'texto', label: 'Titulo/descricao/requisitos' },
       { name: 'requisitos', label: 'Requisitos contem' },
     ],
