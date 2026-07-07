@@ -1,9 +1,10 @@
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.conf import settings
 from django.test import SimpleTestCase, override_settings
-from django.urls import resolve
+from django.urls import Resolver404, resolve
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from Smart_RH.api_auth import (
@@ -33,17 +34,20 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         )
         self.assertFalse(getattr(settings, 'CORS_ALLOW_ALL_ORIGINS', False))
         self.assertIn('http://localhost:5173', settings.CORS_ALLOWED_ORIGINS)
+        self.assertIn('http://127.0.0.1:5173', settings.CORS_ALLOWED_ORIGINS)
         self.assertEqual(settings.CORS_URLS_REGEX, r'^/api/.*$')
 
-    def test_cors_responde_para_origem_local_permitida(self):
-        response = self.client.options(
-            '/api/',
-            HTTP_ORIGIN='http://localhost:5173',
-            HTTP_ACCESS_CONTROL_REQUEST_METHOD='GET',
-        )
+    def test_cors_responde_para_origens_locais_permitidas(self):
+        for origin in ['http://localhost:5173', 'http://127.0.0.1:5173']:
+            with self.subTest(origin=origin):
+                response = self.client.options(
+                    '/api/',
+                    HTTP_ORIGIN=origin,
+                    HTTP_ACCESS_CONTROL_REQUEST_METHOD='GET',
+                )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.headers['access-control-allow-origin'], 'http://localhost:5173')
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.headers['access-control-allow-origin'], origin)
 
     def test_jwt_e_session_authentication_configurados(self):
         authentication_classes = settings.REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES']
@@ -56,6 +60,8 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
             ],
         )
         self.assertEqual(settings.SIMPLE_JWT['AUTH_HEADER_TYPES'], ('Bearer',))
+        self.assertEqual(settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'], timedelta(minutes=30))
+        self.assertEqual(settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'], timedelta(days=1))
 
     def test_email_settings_configurados_por_variaveis_de_ambiente(self):
         self.assertTrue(settings.EMAIL_BACKEND)
@@ -69,6 +75,10 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         self.assertIs(resolve('/api/auth/token/').func.view_class, SmartRHTokenObtainPairView)
         self.assertIs(resolve('/api/auth/token/refresh/').func.view_class, TokenRefreshView)
         self.assertIs(resolve('/api/auth/me/').func.view_class, SmartRHMeView)
+
+    def test_auth_usuarios_crud_nao_existe(self):
+        with self.assertRaises(Resolver404):
+            resolve('/api/auth/usuarios/')
 
     def test_auth_me_session_user_retorna_perfil_candidato(self):
         user = SimpleNamespace(

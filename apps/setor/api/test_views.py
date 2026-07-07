@@ -49,6 +49,8 @@ def cargo_payload(cargo):
         'id_cargo': cargo.id_cargo,
         'nome': cargo.nome,
         'descricao': cargo.descricao,
+        'fk_id_setor': cargo.fk_id_setor_id,
+        'setor_nome': getattr(cargo.fk_id_setor, 'nome', None),
     }
 
 
@@ -107,7 +109,7 @@ def setor_test_detail(request, pk):
 def cargo_test_collection(request):
     """Lista ou cria cargos pela rota local de teste."""
     if request.method == 'GET':
-        cargos = Cargo.objects.all().order_by('id_cargo')
+        cargos = Cargo.objects.select_related('fk_id_setor').all().order_by('id_cargo')
         return JsonResponse({'results': [cargo_payload(cargo) for cargo in cargos]})
 
     data = parse_json_body(request)

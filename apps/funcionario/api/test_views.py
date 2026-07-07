@@ -144,7 +144,7 @@ def funcionario_test_collection(request):
     if request.method == 'GET':
         funcionarios = (
             Funcionario.objects
-            .select_related('fk_id_setor', 'fk_id_cargo')
+            .select_related('fk_id_setor', 'fk_id_cargo', 'fk_id_cargo__fk_id_setor')
             .all()
             .order_by('id_funcionario')
         )
@@ -161,7 +161,11 @@ def funcionario_test_collection(request):
         return JsonResponse(serializer.errors, status=400)
 
     funcionario = serializer.save()
-    funcionario = Funcionario.objects.select_related('fk_id_setor', 'fk_id_cargo').get(pk=funcionario.pk)
+    funcionario = Funcionario.objects.select_related(
+        'fk_id_setor',
+        'fk_id_cargo',
+        'fk_id_cargo__fk_id_setor',
+    ).get(pk=funcionario.pk)
     return JsonResponse(funcionario_payload(funcionario), status=201)
 
 
@@ -188,5 +192,9 @@ def funcionario_test_detail(request, pk):
         return JsonResponse(serializer.errors, status=400)
 
     funcionario = serializer.save()
-    funcionario = Funcionario.objects.select_related('fk_id_setor', 'fk_id_cargo').get(pk=funcionario.pk)
+    funcionario = Funcionario.objects.select_related(
+        'fk_id_setor',
+        'fk_id_cargo',
+        'fk_id_cargo__fk_id_setor',
+    ).get(pk=funcionario.pk)
     return JsonResponse(funcionario_payload(funcionario))

@@ -6,6 +6,33 @@ import type { ApiRecord } from '../types';
 import { PageState } from '../components/PageState';
 import { Button, PageHeader, SensitiveValue } from '../components/ui';
 
+type DisplayField = {
+  key: string;
+  label: string;
+};
+
+const leadershipPlanFields: DisplayField[] = [
+  { key: 'id_plano', label: 'ID' },
+  { key: 'fk_id_cargo', label: 'Cargo vinculado' },
+  { key: 'descricao', label: 'Descricao' },
+  { key: 'requisitos', label: 'Requisitos' },
+];
+
+function FieldGrid({ record, fields }: { record: ApiRecord; fields: DisplayField[] }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {fields.map((field) => (
+        <div key={field.key}>
+          <p className="text-xs font-semibold uppercase text-muted dark:text-slate-400">{field.label}</p>
+          <p className="mt-1 text-sm text-ink dark:text-slate-100">
+            <SensitiveValue value={record[field.key]} />
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Lista funcionarios do setor permitido para lideranca.
  */
@@ -89,7 +116,12 @@ export function LeadershipEmployeeDetailPage() {
           {plans.isLoading ? <p className="text-sm text-muted">Carregando...</p> : null}
           <div className="mb-4 space-y-2">
             {plans.data?.results.map((item, index) => (
-              <pre key={index} className="overflow-auto rounded-md bg-panel p-3 text-xs">{JSON.stringify(item, null, 2)}</pre>
+              <article
+                key={String(item.id_plano ?? index)}
+                className="rounded-md border border-line bg-panel p-3 dark:border-slate-700 dark:bg-slate-900"
+              >
+                <FieldGrid record={item} fields={leadershipPlanFields} />
+              </article>
             ))}
           </div>
           <textarea

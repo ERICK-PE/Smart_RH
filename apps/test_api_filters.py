@@ -83,7 +83,7 @@ class APIFilterConfigurationTests(SimpleTestCase):
     def test_filtros_customizados_estao_registrados(self):
         expected_filters = {
             SetorFilter: {'possui_funcionarios', 'possui_vagas'},
-            CargoFilter: {'possui_funcionarios', 'possui_planos_carreira'},
+            CargoFilter: {'setor', 'setor_nome', 'possui_funcionarios', 'possui_planos_carreira'},
             FuncionarioFilter: {'status', 'setor_nome', 'cargo_nome', 'data_admissao_inicio', 'data_admissao_fim'},
             PlanoCarreiraFilter: {'texto', 'cargo_nome'},
             ContratoFilter: {'funcionario_nome', 'data_inicio_de', 'data_inicio_ate'},

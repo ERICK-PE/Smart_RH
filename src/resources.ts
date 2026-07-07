@@ -57,19 +57,23 @@ export const resources = {
   },
   cargos: {
     title: 'Cargos',
-    description: 'Gestao dos cargos e suas descricoes.',
+    description: 'Gestao dos cargos, descricoes e setor vinculado.',
     endpoint: '/setor/cargos/',
     idField: 'id_cargo',
     columns: [
       { key: 'id_cargo', label: 'ID' },
       { key: 'nome', label: 'Nome' },
+      { key: 'fk_id_setor', label: 'Setor' },
       { key: 'descricao', label: 'Descricao' },
     ],
     fields: [
       { name: 'nome', label: 'Nome', required: true },
+      { name: 'fk_id_setor', label: 'Setor', required: true, relation: setorRelation },
       { name: 'descricao', label: 'Descricao', type: 'textarea' },
     ],
     filters: [
+      { name: 'setor', label: 'ID setor' },
+      { name: 'setor_nome', label: 'Nome setor' },
       { name: 'possui_funcionarios', label: 'Possui funcionarios', type: 'select', options: [
         { label: 'Sim', value: 'true' },
         { label: 'Nao', value: 'false' },
@@ -91,7 +95,6 @@ export const resources = {
     columns: [
       { key: 'id_funcionario', label: 'ID' },
       { key: 'nome', label: 'Nome' },
-      { key: 'user', label: 'Usuario' },
       { key: 'cpf', label: 'CPF' },
       { key: 'email', label: 'E-mail' },
       { key: 'telefone', label: 'Telefone' },
@@ -274,7 +277,7 @@ export const resources = {
   },
   vagas: {
     title: 'Vagas',
-    description: 'Gestao de vagas: descricao comunica, requisitos alimentam triagem, status controla fluxo.',
+    description: 'Gestao de vagas: descricao comunica a vaga, requisitos alimentam a triagem, status controla visibilidade e fluxo.',
     endpoint: '/candidato/vagas/',
     idField: 'id_vaga',
     columns: [
@@ -287,13 +290,14 @@ export const resources = {
       { key: 'fk_id_setor', label: 'Setor' },
     ],
     fields: [
-      { name: 'titulo', label: 'Titulo' },
-      { name: 'descricao', label: 'Descricao livre da vaga', type: 'textarea' },
-      { name: 'requisitos', label: 'Requisitos recomendados para triagem', type: 'textarea' },
+      { name: 'titulo', label: 'Titulo da vaga', required: true },
+      { name: 'descricao', label: 'Descricao publica da vaga', type: 'textarea' },
+      { name: 'requisitos', label: 'Requisitos minimos para triagem', type: 'textarea' },
       {
         name: 'status',
         label: 'Status da vaga',
         type: 'select',
+        required: true,
         options: vagaStatusOptions,
       },
       { name: 'data_publicacao', label: 'Data de publicacao', type: 'date' },
@@ -338,7 +342,7 @@ export const resources = {
     allowEdit: true,
     allowDelete: true,
     rowLinks: [
-      { label: 'Processos', to: (record) => `/rh/vagas/${String(record.id_vaga)}/processos` },
+      { label: 'Triagem/e-mail', to: (record) => `/rh/vagas/${String(record.id_vaga)}/processos` },
     ],
   },
   candidatosAdmin: {

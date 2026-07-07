@@ -109,6 +109,13 @@ class RHAdminModelViewSetMixin(RHAdminAccessMixin):
         return super().get_serializer_class()
 
 
+class RHAdminOnlyModelViewSetMixin(RHAdminModelViewSetMixin):
+    def initial(self, request, *args, **kwargs):
+        """Aplica autorizacao RH/admin para leitura e escrita."""
+        super().initial(request, *args, **kwargs)
+        self.assert_rh_admin_access()
+
+
 class FuncionarioComumAccessMixin(RHAdminAccessMixin):
     lideranca_group_names = {
         'lideranca',
@@ -161,7 +168,7 @@ class FuncionarioComumAccessMixin(RHAdminAccessMixin):
         funcionario = (
             self.get_funcionario_model()
             .objects
-            .select_related('fk_id_setor', 'fk_id_cargo')
+            .select_related('fk_id_setor', 'fk_id_cargo', 'fk_id_cargo__fk_id_setor')
             .filter(pk=funcionario_id)
             .first()
         )
@@ -242,7 +249,7 @@ class FuncionarioComumAccessMixin(RHAdminAccessMixin):
             funcionario = (
                 self.get_funcionario_model()
                 .objects
-                .select_related('fk_id_setor', 'fk_id_cargo')
+                .select_related('fk_id_setor', 'fk_id_cargo', 'fk_id_cargo__fk_id_setor')
                 .get(pk=funcionario_id)
             )
         except self.get_funcionario_model().DoesNotExist as exc:

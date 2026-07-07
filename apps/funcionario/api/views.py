@@ -40,7 +40,12 @@ class FuncionarioViewSet(
     ResumoActionMixin,
     viewsets.ModelViewSet,
 ):
-    queryset = Funcionario.objects.all().order_by('id_funcionario')
+    queryset = (
+        Funcionario.objects
+        .select_related('fk_id_setor', 'fk_id_cargo', 'fk_id_cargo__fk_id_setor')
+        .all()
+        .order_by('id_funcionario')
+    )
     serializer_class = FuncionarioReadSerializer
     write_serializer_class = FuncionarioWriteSerializer
     permission_classes = [permissions.IsAuthenticated]

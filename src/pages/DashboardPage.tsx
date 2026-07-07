@@ -1,19 +1,44 @@
 import { useQueries } from '@tanstack/react-query';
 import { Activity, BriefcaseBusiness, ClipboardList, UsersRound } from 'lucide-react';
 import { api } from '../services/api';
-import { PageHeader } from '../components/ui';
+import { PageHeader, SensitiveValue } from '../components/ui';
 import { PageState } from '../components/PageState';
 
 const indicatorEndpoints = [
-  ['Organização', '/setor/setores/rh/indicadores/'],
-  ['Funcionários', '/funcionario/funcionarios/rh/indicadores/'],
+  ['Organizacao', '/setor/setores/rh/indicadores/'],
+  ['Funcionarios', '/funcionario/funcionarios/rh/indicadores/'],
   ['Planos', '/funcionario/planos-carreira/rh/indicadores/'],
-  ['Análises', '/avaliacao/analises-comportamentais/rh/indicadores/'],
-  ['Avaliações', '/avaliacao/avaliacoes-desempenho/rh/indicadores/'],
+  ['Analises', '/avaliacao/analises-comportamentais/rh/indicadores/'],
+  ['Avaliacoes', '/avaliacao/avaliacoes-desempenho/rh/indicadores/'],
   ['Recrutamento', '/candidato/vagas/rh/indicadores/'],
 ] as const;
 
 const icons = [Activity, UsersRound, BriefcaseBusiness, ClipboardList];
+
+function MetricValue({ value }: { value: unknown }) {
+  if (value && typeof value === 'object') {
+    const entries = Array.isArray(value)
+      ? value.map((item, index) => [String(index + 1), item] as const)
+      : Object.entries(value as Record<string, unknown>);
+
+    if (!entries.length) return <SensitiveValue value={null} />;
+
+    return (
+      <dl className="space-y-1 rounded-md bg-panel p-2 text-left dark:bg-slate-900">
+        {entries.map(([key, item]) => (
+          <div key={key} className="flex items-start justify-between gap-3">
+            <dt className="text-xs font-medium text-muted dark:text-slate-400">{key.replaceAll('_', ' ')}</dt>
+            <dd className="text-right text-xs font-semibold text-ink dark:text-slate-100">
+              {item && typeof item === 'object' ? <MetricValue value={item} /> : <SensitiveValue value={item} />}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+
+  return <SensitiveValue value={value} />;
+}
 
 /**
  * Painel RH que consolida indicadores administrativos de todos os modulos.
@@ -33,11 +58,11 @@ export function DashboardPage() {
   const error = queries.some((query) => query.isError);
 
   if (loading) return <PageState title="Carregando indicadores" />;
-  if (error) return <PageState title="Não foi possível carregar o dashboard" variant="error" />;
+  if (error) return <PageState title="Nao foi possivel carregar o dashboard" variant="error" />;
 
   return (
     <section>
-      <PageHeader title="Dashboard RH" description="Indicadores consolidados dos módulos administrativos." />
+      <PageHeader title="Dashboard RH" description="Indicadores consolidados dos modulos administrativos." />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {queries.map((query, index) => {
           const Icon = icons[index % icons.length];
@@ -55,7 +80,7 @@ export function DashboardPage() {
                   <div key={key} className="flex items-center justify-between gap-4 border-t border-line pt-3 dark:border-slate-700">
                     <dt className="text-sm text-muted dark:text-slate-400">{key.replaceAll('_', ' ')}</dt>
                     <dd className="text-right text-sm font-semibold text-ink dark:text-slate-100">
-                      {typeof value === 'object' ? JSON.stringify(value) : String(value ?? 'Não informado')}
+                      <MetricValue value={value} />
                     </dd>
                   </div>
                 ))}

@@ -5,6 +5,80 @@ import type { ApiRecord } from '../types';
 import { PageState } from '../components/PageState';
 import { PageHeader, SensitiveValue } from '../components/ui';
 
+type DisplayField = {
+  key: string;
+  label: string;
+};
+
+const myDataFields: DisplayField[] = [
+  { key: 'id_funcionario', label: 'ID' },
+  { key: 'nome', label: 'Nome' },
+  { key: 'cpf', label: 'CPF' },
+  { key: 'email', label: 'E-mail' },
+  { key: 'telefone', label: 'Telefone' },
+  { key: 'data_admissao', label: 'Data de admissao' },
+  { key: 'status', label: 'Status' },
+  { key: 'fk_id_setor', label: 'Setor' },
+  { key: 'fk_id_cargo', label: 'Cargo' },
+];
+
+const contractFields: DisplayField[] = [
+  { key: 'id_contrato', label: 'ID' },
+  { key: 'tipo_contrato', label: 'Tipo' },
+  { key: 'salario', label: 'Salario' },
+  { key: 'data_inicio', label: 'Data inicio' },
+  { key: 'data_fim', label: 'Data fim' },
+  { key: 'arquivo', label: 'Arquivo' },
+];
+
+const payslipFields: DisplayField[] = [
+  { key: 'id_folha', label: 'ID' },
+  { key: 'competencia', label: 'Competencia' },
+  { key: 'arquivo', label: 'Arquivo' },
+  { key: 'criado_em', label: 'Criado em' },
+];
+
+const careerPlanFields: DisplayField[] = [
+  { key: 'id_plano', label: 'ID' },
+  { key: 'fk_id_cargo', label: 'Cargo vinculado' },
+  { key: 'descricao', label: 'Descricao' },
+  { key: 'requisitos', label: 'Requisitos' },
+];
+
+const reviewFields: DisplayField[] = [
+  { key: 'id_avaliacao', label: 'ID' },
+  { key: 'fk_id_avaliador', label: 'Avaliador' },
+  { key: 'categoria', label: 'Categoria' },
+  { key: 'nota', label: 'Nota' },
+  { key: 'comentario', label: 'Comentario' },
+  { key: 'data_avaliacao', label: 'Data avaliacao' },
+];
+
+function FieldGrid({ record, fields }: { record: ApiRecord; fields: DisplayField[] }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {fields.map((field) => (
+        <div key={field.key}>
+          <p className="text-xs font-semibold uppercase text-muted dark:text-slate-400">{field.label}</p>
+          <p className="mt-1 text-sm text-ink dark:text-slate-100">
+            <SensitiveValue value={record[field.key]} />
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function getCardKey(record: ApiRecord, index: number) {
+  return String(
+    record.id_contrato ??
+      record.id_folha ??
+      record.id_plano ??
+      record.id_avaliacao ??
+      index,
+  );
+}
+
 /**
  * Renderiza listas do autoatendimento de funcionario.
  */
@@ -12,10 +86,12 @@ function SelfListPage({
   title,
   description,
   endpoint,
+  fields,
 }: {
   title: string;
   description: string;
   endpoint: string;
+  fields: DisplayField[];
 }) {
   const query = useQuery({
     queryKey: ['self-list', endpoint],
@@ -23,7 +99,7 @@ function SelfListPage({
   });
 
   if (query.isLoading) return <PageState title="Carregando dados" />;
-  if (query.isError) return <PageState title="Não foi possível carregar" variant="error" />;
+  if (query.isError) return <PageState title="Nao foi possivel carregar" variant="error" />;
 
   return (
     <section>
@@ -31,12 +107,17 @@ function SelfListPage({
       <div className="space-y-3">
         {query.data?.results.length ? (
           query.data.results.map((item, index) => (
-            <pre key={index} className="overflow-auto rounded-md border border-line bg-white p-4 text-xs text-slate-700 shadow-soft">
-              {JSON.stringify(item, null, 2)}
-            </pre>
+            <article
+              key={getCardKey(item, index)}
+              className="rounded-md border border-line bg-white p-4 shadow-soft dark:border-slate-700 dark:bg-slate-950"
+            >
+              <FieldGrid record={item} fields={fields} />
+            </article>
           ))
         ) : (
-          <div className="rounded-md border border-line bg-white p-4 text-sm text-muted">Nenhum registro encontrado.</div>
+          <div className="rounded-md border border-line bg-white p-4 text-sm text-muted dark:border-slate-700 dark:bg-slate-950">
+            Nenhum registro encontrado.
+          </div>
         )}
       </div>
     </section>
@@ -58,20 +139,15 @@ export function MyDataPage() {
     enabled: Boolean(id),
   });
 
-  if (!id) return <PageState title="Usuário sem vínculo de funcionário" variant="error" />;
+  if (!id) return <PageState title="Usuario sem vinculo de funcionario" variant="error" />;
   if (query.isLoading) return <PageState title="Carregando seus dados" />;
-  if (query.isError || !query.data) return <PageState title="Não foi possível carregar seus dados" variant="error" />;
+  if (query.isError || !query.data) return <PageState title="Nao foi possivel carregar seus dados" variant="error" />;
 
   return (
     <section>
-      <PageHeader title="Meus dados" description="Informações retornadas conforme seu vínculo de funcionário." />
-      <div className="grid gap-3 rounded-md border border-line bg-white p-4 md:grid-cols-3">
-        {Object.entries(query.data).map(([key, value]) => (
-          <div key={key}>
-            <p className="text-xs font-semibold uppercase text-muted">{key}</p>
-            <p className="mt-1 text-sm text-ink"><SensitiveValue value={value} /></p>
-          </div>
-        ))}
+      <PageHeader title="Meus dados" description="Informacoes retornadas conforme seu vinculo de funcionario." />
+      <div className="rounded-md border border-line bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
+        <FieldGrid record={query.data} fields={myDataFields} />
       </div>
     </section>
   );
@@ -82,12 +158,13 @@ export function MyDataPage() {
  */
 export function MyContractsPage() {
   const { user } = useAuth();
-  if (!user?.funcionario_id) return <PageState title="Usuário sem vínculo de funcionário" variant="error" />;
+  if (!user?.funcionario_id) return <PageState title="Usuario sem vinculo de funcionario" variant="error" />;
   return (
     <SelfListPage
       title="Meus contratos"
       description="Contratos vinculados ao seu cadastro funcional."
       endpoint={`/funcionario/funcionarios/${user.funcionario_id}/meus-contratos/`}
+      fields={contractFields}
     />
   );
 }
@@ -103,6 +180,7 @@ export function MyPayslipsPage() {
       title="Minha folha de pagamento"
       description="Arquivos de folha de pagamento vinculados ao seu cadastro funcional."
       endpoint={`/funcionario/funcionarios/${user.funcionario_id}/folha-pagamento/`}
+      fields={payslipFields}
     />
   );
 }
@@ -112,12 +190,13 @@ export function MyPayslipsPage() {
  */
 export function MyCareerPlanPage() {
   const { user } = useAuth();
-  if (!user?.funcionario_id) return <PageState title="Usuário sem vínculo de funcionário" variant="error" />;
+  if (!user?.funcionario_id) return <PageState title="Usuario sem vinculo de funcionario" variant="error" />;
   return (
     <SelfListPage
       title="Meu plano de carreira"
       description="Planos relacionados ao seu cargo atual."
       endpoint={`/funcionario/funcionarios/${user.funcionario_id}/meu-plano-carreira/`}
+      fields={careerPlanFields}
     />
   );
 }
@@ -127,12 +206,13 @@ export function MyCareerPlanPage() {
  */
 export function MyReviewsPage() {
   const { user } = useAuth();
-  if (!user?.funcionario_id) return <PageState title="Usuário sem vínculo de funcionário" variant="error" />;
+  if (!user?.funcionario_id) return <PageState title="Usuario sem vinculo de funcionario" variant="error" />;
   return (
     <SelfListPage
-      title="Minhas avaliações"
-      description="Avaliações de desempenho recebidas por você."
+      title="Minhas avaliacoes"
+      description="Avaliacoes de desempenho recebidas por voce."
       endpoint={`/funcionario/funcionarios/${user.funcionario_id}/minhas-avaliacoes-desempenho/`}
+      fields={reviewFields}
     />
   );
 }

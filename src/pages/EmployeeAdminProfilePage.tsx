@@ -5,14 +5,71 @@ import type { ApiRecord } from '../types';
 import { PageState } from '../components/PageState';
 import { Button, PageHeader, SensitiveValue } from '../components/ui';
 
+type DisplayField = {
+  key: string;
+  label: string;
+};
+
+const profileFields: DisplayField[] = [
+  { key: 'id_funcionario', label: 'ID' },
+  { key: 'nome', label: 'Nome' },
+  { key: 'cpf', label: 'CPF' },
+  { key: 'email', label: 'E-mail' },
+  { key: 'telefone', label: 'Telefone' },
+  { key: 'data_admissao', label: 'Data de admissao' },
+  { key: 'status', label: 'Status' },
+  { key: 'fk_id_setor', label: 'Setor' },
+  { key: 'fk_id_cargo', label: 'Cargo' },
+];
+
+const contractFields: DisplayField[] = [
+  { key: 'id_contrato', label: 'ID' },
+  { key: 'tipo_contrato', label: 'Tipo' },
+  { key: 'salario', label: 'Salario' },
+  { key: 'data_inicio', label: 'Data inicio' },
+  { key: 'data_fim', label: 'Data fim' },
+  { key: 'arquivo', label: 'Arquivo' },
+];
+
+const behaviorFields: DisplayField[] = [
+  { key: 'id_analise', label: 'ID' },
+  { key: 'resultado', label: 'Resultado' },
+  { key: 'data_analise', label: 'Data analise' },
+];
+
+const reviewFields: DisplayField[] = [
+  { key: 'id_avaliacao', label: 'ID' },
+  { key: 'fk_id_funcionario', label: 'Funcionario' },
+  { key: 'fk_id_avaliador', label: 'Avaliador' },
+  { key: 'categoria', label: 'Categoria' },
+  { key: 'nota', label: 'Nota' },
+  { key: 'comentario', label: 'Comentario' },
+  { key: 'data_avaliacao', label: 'Data avaliacao' },
+];
+
 function asRecord(value: unknown): ApiRecord | null {
   return value && typeof value === 'object' ? (value as ApiRecord) : null;
 }
 
+function FieldGrid({ record, fields }: { record: ApiRecord; fields: DisplayField[] }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {fields.map((field) => (
+        <div key={field.key}>
+          <p className="text-xs font-semibold uppercase text-muted dark:text-slate-400">{field.label}</p>
+          <p className="mt-1 text-sm text-ink dark:text-slate-100">
+            <SensitiveValue value={record[field.key]} />
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
- * Lista relacoes do funcionario mantendo o payload bruto visivel para auditoria inicial.
+ * Lista relacoes do funcionario com campos permitidos para RH/admin.
  */
-function RelatedList({ title, endpoint }: { title: string; endpoint: string }) {
+function RelatedList({ title, endpoint, fields }: { title: string; endpoint: string; fields: DisplayField[] }) {
   const query = useQuery({
     queryKey: ['related', endpoint],
     queryFn: () => listResource<ApiRecord>(endpoint, { page_size: 10 }),
@@ -26,12 +83,12 @@ function RelatedList({ title, endpoint }: { title: string; endpoint: string }) {
       ) : query.data?.results.length ? (
         <div className="space-y-2">
           {query.data.results.map((record, index) => (
-            <pre
-              key={index}
-              className="overflow-auto rounded-md bg-panel p-3 text-xs text-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            <article
+              key={String(record.id_contrato ?? record.id_analise ?? record.id_avaliacao ?? index)}
+              className="rounded-md border border-line bg-panel p-3 dark:border-slate-700 dark:bg-slate-900"
             >
-              {JSON.stringify(record, null, 2)}
-            </pre>
+              <FieldGrid record={record} fields={fields} />
+            </article>
           ))}
         </div>
       ) : (
@@ -56,23 +113,19 @@ export function EmployeeAdminProfilePage() {
   });
 
   if (profile.isLoading) return <PageState title="Carregando perfil" />;
-  if (profile.isError || !profile.data) return <PageState title="Não foi possível carregar o perfil" variant="error" />;
+  if (profile.isError || !profile.data) return <PageState title="Nao foi possivel carregar o perfil" variant="error" />;
 
   const userAccess = asRecord(profile.data.user_access);
-  const profileEntries = Object.entries(profile.data).filter(([key]) => key !== 'user_access');
   const accessFields: Array<[string, unknown]> = [
-    ['ID do usuário', userAccess?.id],
-    ['Usuário', userAccess?.username],
+    ['ID do acesso', userAccess?.id],
     ['E-mail', userAccess?.email],
-    ['Acesso ativo', userAccess?.is_active],
-    ['Administrador', userAccess?.is_staff],
-    ['Último login', userAccess?.last_login],
+    ['Ultimo login', userAccess?.last_login],
   ];
 
   return (
     <section>
       <PageHeader
-        title={`Funcionário ${profile.data.nome ?? id}`}
+        title={`Funcionario ${profile.data.nome ?? id}`}
         description="Perfil administrativo com dados funcionais, acesso e relacionamentos."
         action={
           <Link to="/rh/funcionarios">
@@ -95,26 +148,20 @@ export function EmployeeAdminProfilePage() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted dark:text-slate-400">Funcionário sem usuário de acesso vinculado.</p>
+          <p className="text-sm text-muted dark:text-slate-400">Funcionario sem usuario de acesso vinculado.</p>
         )}
       </section>
 
-      <div className="mb-5 grid gap-3 rounded-md border border-line bg-white p-4 md:grid-cols-3 dark:border-slate-700 dark:bg-slate-950">
-        {profileEntries.map(([key, value]) => (
-          <div key={key}>
-            <p className="text-xs font-semibold uppercase text-muted dark:text-slate-400">{key}</p>
-            <p className="mt-1 text-sm text-ink dark:text-slate-100">
-              <SensitiveValue value={value} />
-            </p>
-          </div>
-        ))}
-      </div>
+      <section className="mb-5 rounded-md border border-line bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
+        <h2 className="mb-3 font-semibold text-ink dark:text-slate-100">Dados funcionais</h2>
+        <FieldGrid record={profile.data} fields={profileFields} />
+      </section>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <RelatedList title="Contratos" endpoint={`/funcionario/funcionarios/${id}/contratos/`} />
-        <RelatedList title="Análises comportamentais" endpoint={`/funcionario/funcionarios/${id}/analises-comportamentais/`} />
-        <RelatedList title="Avaliações recebidas" endpoint={`/funcionario/funcionarios/${id}/avaliacoes-recebidas/`} />
-        <RelatedList title="Avaliações realizadas" endpoint={`/funcionario/funcionarios/${id}/avaliacoes-realizadas/`} />
+        <RelatedList title="Contratos" endpoint={`/funcionario/funcionarios/${id}/contratos/`} fields={contractFields} />
+        <RelatedList title="Analises comportamentais" endpoint={`/funcionario/funcionarios/${id}/analises-comportamentais/`} fields={behaviorFields} />
+        <RelatedList title="Avaliacoes recebidas" endpoint={`/funcionario/funcionarios/${id}/avaliacoes-recebidas/`} fields={reviewFields} />
+        <RelatedList title="Avaliacoes realizadas" endpoint={`/funcionario/funcionarios/${id}/avaliacoes-realizadas/`} fields={reviewFields} />
       </div>
     </section>
   );

@@ -95,7 +95,10 @@ def setor_summary(setor):
 
 def cargo_summary(cargo):
     """Retorna dados publicos minimos de cargo."""
-    return related_summary(cargo, 'id_cargo', ['nome'])
+    data = related_summary(cargo, 'id_cargo', ['nome'])
+    if data is not None:
+        data['fk_id_setor'] = setor_summary(get_related_or_none(cargo, 'fk_id_setor'))
+    return data
 
 
 def funcionario_summary(funcionario):

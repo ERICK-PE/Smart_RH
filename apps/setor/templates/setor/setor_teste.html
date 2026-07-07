@@ -75,6 +75,7 @@
         }
 
         input,
+        select,
         textarea {
             width: 100%;
             min-height: 38px;
@@ -196,6 +197,10 @@
                     <input id="role_name" maxlength="100" required>
                 </label>
                 <label>
+                    Setor
+                    <select id="role_sector" required></select>
+                </label>
+                <label>
                     Descricao
                     <textarea id="role_description"></textarea>
                 </label>
@@ -216,6 +221,7 @@
                     <tr>
                         <th>ID</th>
                         <th>Nome</th>
+                        <th>Setor</th>
                         <th>Descricao</th>
                         <th>Acoes</th>
                     </tr>
@@ -317,6 +323,7 @@ function sectorPayload() {
 function rolePayload() {
     return {
         nome: document.querySelector('#role_name').value,
+        fk_id_setor: document.querySelector('#role_sector').value,
         descricao: document.querySelector('#role_description').value,
     };
 }
@@ -343,8 +350,29 @@ function editSector(sector) {
 function editRole(role) {
     document.querySelector('#role_id').value = role.id_cargo;
     document.querySelector('#role_name').value = role.nome || '';
+    document.querySelector('#role_sector').value = role.fk_id_setor || '';
     document.querySelector('#role_description').value = role.descricao || '';
     document.querySelector('#role-submit').textContent = 'Atualizar cargo';
+}
+
+function fillRoleSectorOptions() {
+    const select = document.querySelector('#role_sector');
+    const currentValue = select.value;
+    select.textContent = '';
+
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = 'Selecione';
+    select.appendChild(empty);
+
+    sectors.forEach((sector) => {
+        const option = document.createElement('option');
+        option.value = sector.id_setor;
+        option.textContent = sector.nome;
+        select.appendChild(option);
+    });
+
+    select.value = currentValue;
 }
 
 function renderSectors() {
@@ -352,6 +380,7 @@ function renderSectors() {
     body.textContent = '';
     if (!sectors.length) {
         emptyRow(body, 4, 'Nenhum setor encontrado.');
+        fillRoleSectorOptions();
         return;
     }
 
@@ -367,13 +396,15 @@ function renderSectors() {
         actions.appendChild(button('Deletar', () => deleteSector(sector.id_setor), 'danger'));
         body.appendChild(row);
     });
+
+    fillRoleSectorOptions();
 }
 
 function renderRoles() {
     const body = document.querySelector('#roles-body');
     body.textContent = '';
     if (!roles.length) {
-        emptyRow(body, 4, 'Nenhum cargo encontrado.');
+        emptyRow(body, 5, 'Nenhum cargo encontrado.');
         return;
     }
 
@@ -381,6 +412,7 @@ function renderRoles() {
         const row = document.createElement('tr');
         cell(row, role.id_cargo);
         cell(row, role.nome);
+        cell(row, role.setor_nome || role.fk_id_setor);
         cell(row, role.descricao);
 
         const actions = cell(row, '');
