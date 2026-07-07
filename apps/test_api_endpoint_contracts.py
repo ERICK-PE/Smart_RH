@@ -3,14 +3,36 @@ from django.urls import resolve
 from rest_framework.test import APIClient
 from rest_framework import permissions, viewsets
 
-from apps.api_mixins import RHAdminModelViewSetMixin
+from apps.api_mixins import RHAdminModelViewSetMixin, RHAdminOnlyModelViewSetMixin
 from apps.avaliacao.api.views import (
     AnaliseComportamentalViewSet,
     AvaliacaoDesempenhoViewSet,
 )
 from apps.candidato_vaga.api.views import CandidatoVagaViewSet, CandidatoViewSet, VagaViewSet
-from apps.funcionario.api.views import ContratoViewSet, FuncionarioViewSet, PlanoCarreiraViewSet
+from apps.funcionario.api.views import (
+    ContratoViewSet,
+    FolhaPagamentoViewSet,
+    FuncionarioAgenteDocumentoViewSet,
+    FuncionarioViewSet,
+    PlanoCarreiraViewSet,
+)
 from apps.setor.api.views import CargoViewSet, SetorViewSet
+
+
+class GroupsStub:
+    def values_list(self, *args, **kwargs):
+        return []
+
+
+class AuthenticatedUserStub:
+    pk = 1
+    is_authenticated = True
+    is_staff = False
+    is_superuser = False
+    groups = GroupsStub()
+
+    def has_perm(self, permission):
+        return False
 
 
 class APIEndpointContractTests(SimpleTestCase):
@@ -20,6 +42,8 @@ class APIEndpointContractTests(SimpleTestCase):
         '/api/funcionario/funcionarios/',
         '/api/funcionario/planos-carreira/',
         '/api/funcionario/contratos/',
+        '/api/funcionario/folhas-pagamento/',
+        '/api/funcionario/agente/',
         '/api/candidato/candidatos/',
         '/api/candidato/vagas/',
         '/api/candidato/candidato-vagas/',
@@ -32,6 +56,8 @@ class APIEndpointContractTests(SimpleTestCase):
         '/api/funcionario/funcionarios/1/',
         '/api/funcionario/planos-carreira/1/',
         '/api/funcionario/contratos/1/',
+        '/api/funcionario/folhas-pagamento/1/',
+        '/api/funcionario/agente/1/',
         '/api/candidato/candidatos/12345678901/',
         '/api/candidato/vagas/1/',
         '/api/candidato/candidato-vagas/12345678901:1/',
@@ -44,6 +70,8 @@ class APIEndpointContractTests(SimpleTestCase):
         FuncionarioViewSet,
         PlanoCarreiraViewSet,
         ContratoViewSet,
+        FolhaPagamentoViewSet,
+        FuncionarioAgenteDocumentoViewSet,
         CandidatoViewSet,
         VagaViewSet,
         CandidatoVagaViewSet,
@@ -56,6 +84,8 @@ class APIEndpointContractTests(SimpleTestCase):
         FuncionarioViewSet,
         PlanoCarreiraViewSet,
         ContratoViewSet,
+        FolhaPagamentoViewSet,
+        FuncionarioAgenteDocumentoViewSet,
         VagaViewSet,
         CandidatoVagaViewSet,
         AnaliseComportamentalViewSet,
@@ -112,6 +142,19 @@ class APIEndpointContractTests(SimpleTestCase):
             with self.subTest(viewset=viewset_class.__name__):
                 self.assertTrue(issubclass(viewset_class, viewsets.ModelViewSet))
                 self.assertTrue(issubclass(viewset_class, RHAdminModelViewSetMixin))
+
+    def test_setor_e_cargo_exigem_rh_admin_tambem_na_leitura(self):
+        self.assertTrue(issubclass(SetorViewSet, RHAdminOnlyModelViewSetMixin))
+        self.assertTrue(issubclass(CargoViewSet, RHAdminOnlyModelViewSetMixin))
+
+        client = APIClient()
+        client.force_authenticate(user=AuthenticatedUserStub())
+
+        for path in ['/api/setor/setores/', '/api/setor/cargos/']:
+            with self.subTest(path=path):
+                response = client.get(path)
+
+                self.assertEqual(response.status_code, 403)
 
     def test_candidato_tem_politica_propria_para_escrita(self):
         self.assertTrue(issubclass(CandidatoViewSet, viewsets.ModelViewSet))

@@ -95,7 +95,7 @@ def avaliacao_test_options(request):
     """Retorna opcoes auxiliares para formularios de avaliacao."""
     funcionarios = (
         Funcionario.objects
-        .select_related('fk_id_setor', 'fk_id_cargo')
+        .select_related('fk_id_setor', 'fk_id_cargo', 'fk_id_cargo__fk_id_setor')
         .all()
         .order_by('nome', 'id_funcionario')
     )
@@ -110,7 +110,7 @@ def funcionario_test_collection(request):
     """Lista funcionarios para tela local de avaliacao."""
     funcionarios = (
         Funcionario.objects
-        .select_related('fk_id_setor', 'fk_id_cargo')
+        .select_related('fk_id_setor', 'fk_id_cargo', 'fk_id_cargo__fk_id_setor')
         .all()
         .order_by('nome', 'id_funcionario')
     )

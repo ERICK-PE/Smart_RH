@@ -1,12 +1,26 @@
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.conf import settings
 from django.test import SimpleTestCase, override_settings
-from django.urls import resolve
+from django.urls import Resolver404, resolve
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from Smart_RH.api_auth import SmartRHTokenObtainPairSerializer, SmartRHTokenObtainPairView
+from Smart_RH.api_auth import (
+    SmartRHMeView,
+    SmartRHTokenObtainPairSerializer,
+    SmartRHTokenObtainPairView,
+    build_session_user,
+)
+
+
+class GroupsStub:
+    def __init__(self, names):
+        self.names = names
+
+    def values_list(self, *args, **kwargs):
+        return self.names
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'])
@@ -20,17 +34,20 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
         )
         self.assertFalse(getattr(settings, 'CORS_ALLOW_ALL_ORIGINS', False))
         self.assertIn('http://localhost:5173', settings.CORS_ALLOWED_ORIGINS)
+        self.assertIn('http://127.0.0.1:5173', settings.CORS_ALLOWED_ORIGINS)
         self.assertEqual(settings.CORS_URLS_REGEX, r'^/api/.*$')
 
-    def test_cors_responde_para_origem_local_permitida(self):
-        response = self.client.options(
-            '/api/',
-            HTTP_ORIGIN='http://localhost:5173',
-            HTTP_ACCESS_CONTROL_REQUEST_METHOD='GET',
-        )
+    def test_cors_responde_para_origens_locais_permitidas(self):
+        for origin in ['http://localhost:5173', 'http://127.0.0.1:5173']:
+            with self.subTest(origin=origin):
+                response = self.client.options(
+                    '/api/',
+                    HTTP_ORIGIN=origin,
+                    HTTP_ACCESS_CONTROL_REQUEST_METHOD='GET',
+                )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.headers['access-control-allow-origin'], 'http://localhost:5173')
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.headers['access-control-allow-origin'], origin)
 
     def test_jwt_e_session_authentication_configurados(self):
         authentication_classes = settings.REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES']
@@ -43,10 +60,114 @@ class APIAuthCorsConfigurationTests(SimpleTestCase):
             ],
         )
         self.assertEqual(settings.SIMPLE_JWT['AUTH_HEADER_TYPES'], ('Bearer',))
+        self.assertEqual(settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'], timedelta(minutes=30))
+        self.assertEqual(settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'], timedelta(days=1))
+
+    def test_email_settings_configurados_por_variaveis_de_ambiente(self):
+        self.assertTrue(settings.EMAIL_BACKEND)
+        self.assertIsInstance(settings.EMAIL_PORT, int)
+        self.assertIsInstance(settings.EMAIL_USE_TLS, bool)
+        self.assertIsInstance(settings.EMAIL_USE_SSL, bool)
+        self.assertTrue(settings.DEFAULT_FROM_EMAIL)
+        self.assertEqual(settings.SERVER_EMAIL, settings.DEFAULT_FROM_EMAIL)
 
     def test_rotas_jwt_resolvem_sob_api_auth(self):
         self.assertIs(resolve('/api/auth/token/').func.view_class, SmartRHTokenObtainPairView)
         self.assertIs(resolve('/api/auth/token/refresh/').func.view_class, TokenRefreshView)
+        self.assertIs(resolve('/api/auth/me/').func.view_class, SmartRHMeView)
+
+    def test_auth_usuarios_crud_nao_existe(self):
+        with self.assertRaises(Resolver404):
+            resolve('/api/auth/usuarios/')
+
+    def test_auth_me_session_user_retorna_perfil_candidato(self):
+        user = SimpleNamespace(
+            pk=1,
+            username='candidato:ana',
+            email='ana@example.com',
+            get_username=lambda: 'candidato:ana',
+            get_full_name=lambda: '',
+            is_staff=False,
+            is_superuser=False,
+            groups=GroupsStub([]),
+            get_all_permissions=lambda: set(),
+            candidato=SimpleNamespace(pk='12345678901', nome='Ana'),
+        )
+
+        data = build_session_user(user)
+
+        self.assertEqual(data['profile'], 'candidato')
+        self.assertEqual(data['email'], 'ana@example.com')
+        self.assertEqual(data['nome'], 'Ana')
+        self.assertEqual(data['candidato_cpf'], '12345678901')
+        self.assertTrue(data['is_candidato'])
+        self.assertFalse(data['is_funcionario'])
+
+    def test_auth_me_session_user_retorna_lideranca_por_cargo(self):
+        user = SimpleNamespace(
+            pk=2,
+            username='maria',
+            email='maria@example.com',
+            get_username=lambda: 'maria',
+            get_full_name=lambda: '',
+            is_staff=False,
+            is_superuser=False,
+            groups=GroupsStub([]),
+            get_all_permissions=lambda: set(),
+            funcionario=SimpleNamespace(
+                pk=10,
+                nome='Maria',
+                fk_id_cargo=SimpleNamespace(nome='Gerente'),
+            ),
+        )
+
+        data = build_session_user(user)
+
+        self.assertEqual(data['profile'], 'lideranca')
+        self.assertEqual(data['email'], 'maria@example.com')
+        self.assertEqual(data['funcionario_id'], 10)
+        self.assertTrue(data['is_funcionario'])
+        self.assertTrue(data['is_lideranca'])
+
+    def test_auth_me_session_user_retorna_rh_admin_por_grupo(self):
+        user = SimpleNamespace(
+            pk=3,
+            username='rh',
+            email='rh@example.com',
+            get_username=lambda: 'rh',
+            get_full_name=lambda: '',
+            is_staff=False,
+            is_superuser=False,
+            groups=GroupsStub(['rh']),
+            get_all_permissions=lambda: set(),
+            funcionario=SimpleNamespace(pk=20, nome='RH', fk_id_cargo=SimpleNamespace(nome='Analista')),
+        )
+
+        data = build_session_user(user)
+
+        self.assertEqual(data['profile'], 'rh_admin')
+        self.assertEqual(data['email'], 'rh@example.com')
+        self.assertTrue(data['is_rh_admin'])
+        self.assertEqual(data['groups'], ['rh'])
+
+    def test_auth_me_session_user_mantem_rh_admin_como_perfil_unico(self):
+        user = SimpleNamespace(
+            pk=4,
+            username='admin',
+            email='admin@example.com',
+            get_username=lambda: 'admin',
+            get_full_name=lambda: '',
+            is_staff=True,
+            is_superuser=False,
+            groups=GroupsStub([]),
+            get_all_permissions=lambda: set(),
+        )
+
+        data = build_session_user(user)
+
+        self.assertEqual(data['profile'], 'rh_admin')
+        self.assertNotEqual(data['profile'], 'rh')
+        self.assertNotEqual(data['profile'], 'admin')
 
     def test_token_serializer_resolve_username_publico_do_candidato(self):
         serializer = SmartRHTokenObtainPairSerializer()

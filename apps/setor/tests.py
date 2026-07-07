@@ -1,7 +1,9 @@
 from django.http import Http404
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.urls import resolve
+from django.core.management import call_command
 from rest_framework import permissions, viewsets
+from io import StringIO
 
 from apps.api_mixins import RHAdminModelViewSetMixin
 from apps.setor.api.serializers import (
@@ -10,11 +12,14 @@ from apps.setor.api.serializers import (
     SetorReadSerializer,
     SetorWriteSerializer,
 )
+from apps.setor.models import Cargo, Setor
 from apps.setor.api.test_views import setor_test_page
 from apps.setor.api.views import CargoViewSet, SetorViewSet
 
 
 class SetorCargoCRUDViewSetTests(SimpleTestCase):
+    databases = {'default'}
+
     def test_viewsets_usam_model_viewset_para_crud_completo(self):
         self.assertTrue(issubclass(SetorViewSet, viewsets.ModelViewSet))
         self.assertTrue(issubclass(CargoViewSet, viewsets.ModelViewSet))
@@ -64,6 +69,39 @@ class SetorCargoCRUDViewSetTests(SimpleTestCase):
                 self.assertTrue(issubclass(viewset_class, RHAdminModelViewSetMixin))
                 self.assertEqual(viewset_class.permission_classes, [permissions.IsAuthenticated])
 
+    def test_cargo_serializer_expoe_setor_resumido(self):
+        cargo = Cargo(
+            id_cargo=1,
+            nome='Analista',
+            fk_id_setor=Setor(id_setor=2, nome='Tecnologia'),
+        )
+
+        data = CargoReadSerializer(cargo).data
+
+        self.assertEqual(data['fk_id_setor'], {'id_setor': 2, 'nome': 'Tecnologia'})
+
+    def test_cargo_write_serializer_exige_setor_na_criacao(self):
+        serializer = CargoWriteSerializer(data={'nome': 'Analista'})
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('fk_id_setor', serializer.errors)
+
+    def test_cargo_viewset_filtra_e_busca_por_setor(self):
+        self.assertIn('fk_id_setor', CargoViewSet.filterset_fields)
+        self.assertIn('fk_id_setor__nome', CargoViewSet.search_fields)
+        self.assertIn('setor', CargoViewSet.filterset_class.base_filters)
+        self.assertIn('setor_nome', CargoViewSet.filterset_class.base_filters)
+
+    def test_migration_0002_adiciona_fk_id_setor_em_cargo(self):
+        output = StringIO()
+
+        call_command('sqlmigrate', 'setor', '0002', stdout=output)
+        sql = output.getvalue()
+
+        self.assertIn('ADD COLUMN IF NOT EXISTS fk_id_setor integer', sql)
+        self.assertIn('cargo_fk_id_setor_fkey', sql)
+        self.assertIn('REFERENCES setor(id_setor)', sql)
+
 
 class SetorCargoTestPageTests(SimpleTestCase):
     def test_rota_tela_teste_setor_cargo_existe(self):
@@ -80,6 +118,7 @@ class SetorCargoTestPageTests(SimpleTestCase):
 
         self.assertIn('<form id="sector-form">', content)
         self.assertIn('<form id="role-form">', content)
+        self.assertIn('id="role_sector"', content)
         self.assertIn('<tbody id="sectors-body"></tbody>', content)
         self.assertIn('<tbody id="roles-body"></tbody>', content)
         self.assertIn('Editar', content)

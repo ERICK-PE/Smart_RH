@@ -3,7 +3,10 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.avaliacao.models import AnaliseComportamental, AvaliacaoDesempenho
-from apps.funcionario.api.serializers import can_view_funcionario_sensitive
+from apps.funcionario.api.serializers import (
+    can_view_funcionario_sensitive,
+    funcionario_summary,
+)
 from apps.validators import normalize_optional_text
 
 
@@ -21,6 +24,7 @@ def can_view_avaliacao_sensitive(serializer, avaliacao):
 
 
 class AnaliseComportamentalReadSerializer(serializers.ModelSerializer):
+    fk_id_funcionario = serializers.SerializerMethodField()
     resultado = serializers.SerializerMethodField()
 
     class Meta:
@@ -32,7 +36,10 @@ class AnaliseComportamentalReadSerializer(serializers.ModelSerializer):
             'data_analise',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_fk_id_funcionario(self, obj) -> dict | None:
+        """Retorna resumo seguro do funcionario avaliado."""
+        return funcionario_summary(obj.fk_id_funcionario)
 
     def get_resultado(self, obj) -> str | None:
         """Retorna resultado apenas para contexto autorizado."""
@@ -70,6 +77,8 @@ class AnaliseComportamentalWriteSerializer(serializers.ModelSerializer):
 
 
 class AvaliacaoDesempenhoReadSerializer(serializers.ModelSerializer):
+    fk_id_funcionario = serializers.SerializerMethodField()
+    fk_id_avaliador = serializers.SerializerMethodField()
     comentario = serializers.SerializerMethodField()
 
     class Meta:
@@ -84,7 +93,14 @@ class AvaliacaoDesempenhoReadSerializer(serializers.ModelSerializer):
             'data_avaliacao',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_fk_id_funcionario(self, obj) -> dict | None:
+        """Retorna resumo seguro do funcionario avaliado."""
+        return funcionario_summary(obj.fk_id_funcionario)
+
+    def get_fk_id_avaliador(self, obj) -> dict | None:
+        """Retorna resumo seguro do avaliador."""
+        return funcionario_summary(obj.fk_id_avaliador)
 
     def get_comentario(self, obj) -> str | None:
         """Retorna comentario apenas para contexto autorizado."""

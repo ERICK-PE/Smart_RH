@@ -1,4 +1,5 @@
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
@@ -9,18 +10,24 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from apps.api_mixins import RHAdminAccessMixin, RHAdminModelViewSetMixin, ResumoActionMixin
-from apps.candidato_vaga.api.filters import CandidatoFilter, CandidatoVagaFilter, VagaFilter
+from apps.candidato_vaga.api.filters import CandidatoFilter, CandidatoVagaFilter, CandidatoVagaRHFilter, VagaFilter
 from apps.candidato_vaga.api.serializers import (
     CandidaturaCreateSerializer,
     CandidatoRegistrationSerializer,
+    CandidatoVagaEmailSerializer,
     CandidatoReadSerializer,
     CandidatoWriteSerializer,
+    CandidatoVagaRHReadSerializer,
     CandidatoVagaReadSerializer,
     CandidatoVagaWriteSerializer,
     VagaReadSerializer,
     VagaWriteSerializer,
 )
 from apps.candidato_vaga.models import Candidato, CandidatoVaga, Vaga
+from apps.candidato_vaga.services.triagem_candidatura import (
+    TRIAGEM_CLASSIFICACAO_REPROVADO_TECNICO,
+    TRIAGEM_REVISAO_CLASSIFICACOES,
+)
 
 
 class CandidatoAccessMixin(RHAdminAccessMixin):
@@ -265,13 +272,24 @@ class VagaViewSet(
     permission_classes = [permissions.IsAuthenticated]
     filterset_class = VagaFilter
     filterset_fields = ['id_vaga', 'fk_id_setor', 'titulo', 'status']
-    search_fields = ['titulo', 'descricao', 'fk_id_setor__nome']
+    search_fields = ['titulo', 'descricao', 'requisitos', 'fk_id_setor__nome']
 
     @action(detail=False, methods=['get'], url_path='rh/indicadores')
     def rh_indicadores(self, request):
         """Retorna indicadores administrativos de vagas e candidaturas."""
         self.assert_rh_admin_access()
         vagas_queryset = self.filter_queryset(self.get_queryset())
+        vagas_fechadas_queryset = vagas_queryset.filter(status=Vaga.STATUS_FECHADA)
+        vagas_visiveis_queryset = vagas_queryset.filter(
+            status__in=[Vaga.STATUS_ABERTA, Vaga.STATUS_ANDAMENTO],
+        )
+        candidaturas_queryset = CandidatoVaga.objects.filter(id_vaga__in=vagas_queryset)
+        candidaturas_fechadas_queryset = CandidatoVaga.objects.filter(
+            id_vaga__in=vagas_fechadas_queryset,
+        )
+        candidaturas_visiveis_queryset = CandidatoVaga.objects.filter(
+            id_vaga__in=vagas_visiveis_queryset,
+        )
         vaga_status_counts = (
             vagas_queryset
             .values('status')
@@ -279,7 +297,19 @@ class VagaViewSet(
             .order_by('status')
         )
         status_counts = (
-            CandidatoVaga.objects
+            candidaturas_queryset
+            .values('status_processo')
+            .annotate(total=Count('cpf_candidato'))
+            .order_by('status_processo')
+        )
+        status_fechadas_counts = (
+            candidaturas_fechadas_queryset
+            .values('status_processo')
+            .annotate(total=Count('cpf_candidato'))
+            .order_by('status_processo')
+        )
+        status_visiveis_counts = (
+            candidaturas_visiveis_queryset
             .values('status_processo')
             .annotate(total=Count('cpf_candidato'))
             .order_by('status_processo')
@@ -287,7 +317,9 @@ class VagaViewSet(
         return Response({
             'total_vagas': vagas_queryset.count(),
             'total_candidatos': Candidato.objects.count(),
-            'total_candidaturas': CandidatoVaga.objects.count(),
+            'total_candidaturas': candidaturas_queryset.count(),
+            'total_candidaturas_vagas_fechadas': candidaturas_fechadas_queryset.count(),
+            'total_candidaturas_vagas_visiveis': candidaturas_visiveis_queryset.count(),
             'vagas_por_status': {
                 item['status'] or 'sem_status': item['total']
                 for item in vaga_status_counts
@@ -295,6 +327,14 @@ class VagaViewSet(
             'candidaturas_por_status': {
                 item['status_processo'] or 'sem_status': item['total']
                 for item in status_counts
+            },
+            'candidaturas_vagas_fechadas_por_status': {
+                item['status_processo'] or 'sem_status': item['total']
+                for item in status_fechadas_counts
+            },
+            'candidaturas_vagas_visiveis_por_status': {
+                item['status_processo'] or 'sem_status': item['total']
+                for item in status_visiveis_counts
             },
         })
 
@@ -328,12 +368,15 @@ class VagaViewSet(
 
     @action(detail=True, methods=['get'], url_path='rh/candidatos')
     def rh_candidatos(self, request, pk=None):
-        """Lista todos os candidatos da vaga para RH/admin."""
+        """Lista candidatos aprovados pela triagem automatica para RH/admin."""
         self.assert_rh_admin_access()
         vaga = self.get_object()
         return self.paginated_serializer_response(
-            vaga.candidatovaga_set.all().order_by('cpf_candidato'),
-            CandidatoVagaReadSerializer,
+            vaga.candidatovaga_set
+            .all()
+            .filter(triagem_automatica_aprovada=True)
+            .order_by('-triagem_automatica_pontuacao', 'cpf_candidato'),
+            CandidatoVagaRHReadSerializer,
         )
 
     @action(detail=True, methods=['get'], url_path='rh/processos')
@@ -343,8 +386,76 @@ class VagaViewSet(
         vaga = self.get_object()
         return self.paginated_serializer_response(
             vaga.candidatovaga_set.all().order_by('cpf_candidato'),
-            CandidatoVagaReadSerializer,
+            CandidatoVagaRHReadSerializer,
         )
+
+    @action(detail=True, methods=['get'], url_path='rh/triagem-revisao')
+    def rh_triagem_revisao(self, request, pk=None):
+        """Lista candidaturas pendentes/reprovadas para revisao RH."""
+        self.assert_rh_admin_access()
+        vaga = self.get_object()
+        return self.paginated_serializer_response(
+            vaga.candidatovaga_set
+            .all()
+            .filter(triagem_automatica_classificacao__in=TRIAGEM_REVISAO_CLASSIFICACOES)
+            .order_by('triagem_automatica_pontuacao', 'cpf_candidato'),
+            CandidatoVagaRHReadSerializer,
+        )
+
+    @action(detail=True, methods=['post'], url_path='rh/enviar-email-candidatos')
+    def rh_enviar_email_candidatos(self, request, pk=None):
+        """Envia e-mail individual para candidatos da vaga conforme selecao RH."""
+        self.assert_rh_admin_access()
+        vaga = self.get_object()
+        serializer = CandidatoVagaEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        candidaturas = self.get_candidaturas_para_email(vaga, data)
+
+        enviados = 0
+        sem_email = 0
+        for candidatura in candidaturas:
+            email = getattr(candidatura.cpf_candidato, 'email', None)
+            if not email:
+                sem_email += 1
+                continue
+
+            send_mail(
+                data['assunto'],
+                data['mensagem'],
+                None,
+                [email],
+                fail_silently=False,
+            )
+            enviados += 1
+
+        return Response({
+            'tipo_destinatarios': data['tipo_destinatarios'],
+            'total_candidaturas': len(candidaturas),
+            'total_enviados': enviados,
+            'total_sem_email': sem_email,
+        })
+
+    def get_candidaturas_para_email(self, vaga, data):
+        """Resolve candidatos-alvo sem aceitar e-mails externos ao processo."""
+        candidaturas = (
+            vaga.candidatovaga_set
+            .all()
+            .select_related('cpf_candidato')
+            .order_by('cpf_candidato')
+        )
+        tipo_destinatarios = data['tipo_destinatarios']
+
+        if tipo_destinatarios == CandidatoVagaEmailSerializer.TIPO_APROVADOS:
+            candidaturas = candidaturas.filter(triagem_automatica_aprovada=True)
+        elif tipo_destinatarios == CandidatoVagaEmailSerializer.TIPO_REPROVADOS:
+            candidaturas = candidaturas.filter(
+                triagem_automatica_classificacao=TRIAGEM_CLASSIFICACAO_REPROVADO_TECNICO,
+            )
+        else:
+            candidaturas = candidaturas.filter(cpf_candidato_id__in=data['cpf_candidatos'])
+
+        return list(candidaturas)
 
     @action(
         detail=True,
@@ -381,8 +492,41 @@ class CandidatoVagaViewSet(
     permission_classes = [permissions.IsAuthenticated]
     lookup_value_regex = r'[^/]+'
     filterset_class = CandidatoVagaFilter
-    filterset_fields = ['cpf_candidato', 'id_vaga', 'status_processo']
-    search_fields = ['status_processo', 'id_vaga__titulo']
+    filterset_fields = [
+        'cpf_candidato',
+        'id_vaga',
+        'status_processo',
+        'triagem_automatica_aprovada',
+        'triagem_automatica_classificacao',
+    ]
+    search_fields = [
+        'status_processo',
+        'id_vaga__titulo',
+    ]
+    rh_search_fields = [
+        *search_fields,
+        'triagem_automatica_motivo',
+        'triagem_automatica_palavras_chave',
+        'triagem_automatica_classificacao',
+    ]
+
+    def get_search_fields(self, request):
+        """Evita inferencia de triagem por busca em acesso comum."""
+        if self.user_has_global_access():
+            return self.rh_search_fields
+        return self.search_fields
+
+    def filter_queryset(self, queryset):
+        """Aplica filtros internos de triagem somente no contexto RH/admin."""
+        if not self.user_has_global_access():
+            return super().filter_queryset(queryset)
+
+        original_filterset_class = self.filterset_class
+        self.filterset_class = CandidatoVagaRHFilter
+        try:
+            return super().filter_queryset(queryset)
+        finally:
+            self.filterset_class = original_filterset_class
 
     def parse_composite_lookup(self, lookup_value):
         """Separa lookup composto no formato cpf_candidato:id_vaga."""

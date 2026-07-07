@@ -6,6 +6,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.candidato_vaga.models import Candidato, CandidatoVaga, Vaga
+from apps.candidato_vaga.services.triagem_candidatura import analisar_candidatura
 from apps.validators import (
     cpf_format_validator,
     nome_validators,
@@ -29,6 +30,47 @@ CURRICULO_MAX_SIZE_BYTES = 5 * 1024 * 1024
 def get_file_name(value):
     """Retorna caminho persistido do arquivo, nao objeto de arquivo."""
     return getattr(value, 'name', value) or None
+
+
+def safe_user_summary(user, include_email=False):
+    """Retorna resumo minimo do auth_user sem flags/permissoes internas."""
+    if not user:
+        return None
+
+    data = {
+        'id': getattr(user, 'pk', None),
+        'username': getattr(user, 'username', None),
+    }
+    if include_email:
+        data['email'] = getattr(user, 'email', None)
+    return data
+
+
+def setor_summary(setor):
+    """Retorna dados publicos minimos de setor."""
+    if setor is None:
+        return None
+
+    return {
+        'id_setor': getattr(setor, 'id_setor', None),
+        'nome': getattr(setor, 'nome', None),
+    }
+
+
+def vaga_summary(vaga):
+    """Retorna resumo publico de vaga sem candidaturas aninhadas."""
+    if vaga is None:
+        return None
+
+    return {
+        'id_vaga': getattr(vaga, 'id_vaga', None),
+        'titulo': getattr(vaga, 'titulo', None),
+        'descricao': getattr(vaga, 'descricao', None),
+        'requisitos': getattr(vaga, 'requisitos', None),
+        'data_publicacao': getattr(vaga, 'data_publicacao', None),
+        'status': getattr(vaga, 'status', None),
+        'fk_id_setor': setor_summary(getattr(vaga, 'fk_id_setor', None)),
+    }
 
 
 def validate_curriculo_upload(value):
@@ -129,6 +171,7 @@ def can_view_candidato_sensitive(serializer, candidato):
 
 class CandidatoReadSerializer(serializers.ModelSerializer):
     cpf_candidato = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
     telefone = serializers.SerializerMethodField()
     curriculo = serializers.SerializerMethodField()
@@ -144,7 +187,10 @@ class CandidatoReadSerializer(serializers.ModelSerializer):
             'curriculo',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_user(self, obj) -> dict | None:
+        """Retorna usuario vinculado sem flags/permissoes internas."""
+        return safe_user_summary(obj.user, include_email=can_view_candidato_sensitive(self, obj))
 
     def get_cpf_candidato(self, obj) -> str | None:
         """Retorna CPF real ou mascarado conforme permissao."""
@@ -324,6 +370,7 @@ class CandidatoRegistrationSerializer(serializers.Serializer):
 
 class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
     cpf_candidato = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
     telefone = serializers.SerializerMethodField()
     curriculo = serializers.SerializerMethodField()
@@ -340,7 +387,10 @@ class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
             'candidatovaga_set',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_user(self, obj) -> dict | None:
+        """Retorna usuario vinculado sem flags/permissoes internas."""
+        return safe_user_summary(obj.user, include_email=can_view_candidato_sensitive(self, obj))
 
     def get_cpf_candidato(self, obj) -> str | None:
         """Retorna CPF real ou mascarado em leitura com vagas."""
@@ -368,18 +418,24 @@ class CandidatoComVagasReadSerializer(serializers.ModelSerializer):
 
 
 class VagaReadSerializer(serializers.ModelSerializer):
+    fk_id_setor = serializers.SerializerMethodField()
+
     class Meta:
         model = Vaga
         fields = [
             'id_vaga',
             'titulo',
             'descricao',
+            'requisitos',
             'data_publicacao',
             'status',
             'fk_id_setor',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_fk_id_setor(self, obj) -> dict | None:
+        """Retorna resumo seguro do setor."""
+        return setor_summary(obj.fk_id_setor)
 
 
 class VagaWriteSerializer(serializers.ModelSerializer):
@@ -396,6 +452,7 @@ class VagaWriteSerializer(serializers.ModelSerializer):
             'id_vaga',
             'titulo',
             'descricao',
+            'requisitos',
             'data_publicacao',
             'status',
             'fk_id_setor',
@@ -425,7 +482,7 @@ class VagaWriteSerializer(serializers.ModelSerializer):
         return status_vaga
 
     def validate(self, attrs):
-        """Valida data de publicacao e normaliza descricao da vaga."""
+        """Valida data de publicacao e normaliza textos da vaga."""
         data_publicacao = attrs.get('data_publicacao')
 
         if data_publicacao and data_publicacao > timezone.localdate():
@@ -435,28 +492,37 @@ class VagaWriteSerializer(serializers.ModelSerializer):
 
         if 'descricao' in attrs:
             attrs['descricao'] = normalize_optional_text(attrs.get('descricao'))
+        if 'requisitos' in attrs:
+            attrs['requisitos'] = normalize_optional_text(attrs.get('requisitos'))
 
         return attrs
 
 
 class VagaComCandidatosReadSerializer(serializers.ModelSerializer):
+    fk_id_setor = serializers.SerializerMethodField()
+
     class Meta:
         model = Vaga
         fields = [
             'id_vaga',
             'titulo',
             'descricao',
+            'requisitos',
             'data_publicacao',
             'status',
             'fk_id_setor',
             'candidatovaga_set',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_fk_id_setor(self, obj) -> dict | None:
+        """Retorna resumo seguro do setor."""
+        return setor_summary(obj.fk_id_setor)
 
 
 class CandidatoVagaReadSerializer(serializers.ModelSerializer):
     cpf_candidato = serializers.SerializerMethodField()
+    id_vaga = serializers.SerializerMethodField()
     status_vaga = serializers.CharField(source='id_vaga.status', read_only=True)
 
     class Meta:
@@ -468,7 +534,10 @@ class CandidatoVagaReadSerializer(serializers.ModelSerializer):
             'status_processo',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_id_vaga(self, obj) -> dict | None:
+        """Retorna resumo seguro da vaga vinculada."""
+        return vaga_summary(obj.id_vaga)
 
     def get_cpf_candidato(self, obj) -> str | None:
         """Retorna CPF real ou mascarado do vinculo candidato-vaga."""
@@ -476,6 +545,64 @@ class CandidatoVagaReadSerializer(serializers.ModelSerializer):
         if can_view_candidato_sensitive(self, candidato):
             return candidato.pk
         return mask_cpf(candidato.pk)
+
+
+class CandidatoVagaRHReadSerializer(CandidatoVagaReadSerializer):
+    class Meta(CandidatoVagaReadSerializer.Meta):
+        fields = [
+            *CandidatoVagaReadSerializer.Meta.fields,
+            'triagem_automatica_aprovada',
+            'triagem_automatica_motivo',
+            'triagem_automatica_palavras_chave',
+            'triagem_automatica_pontuacao',
+            'triagem_automatica_classificacao',
+        ]
+        read_only_fields = fields
+
+
+class CandidatoVagaEmailSerializer(serializers.Serializer):
+    TIPO_APROVADOS = 'aprovados'
+    TIPO_REPROVADOS = 'reprovados'
+    TIPO_SELECIONADOS = 'selecionados'
+    TIPO_DESTINATARIOS_CHOICES = [
+        (TIPO_APROVADOS, 'Aprovados'),
+        (TIPO_REPROVADOS, 'Reprovados'),
+        (TIPO_SELECIONADOS, 'Selecionados'),
+    ]
+
+    tipo_destinatarios = serializers.ChoiceField(choices=TIPO_DESTINATARIOS_CHOICES)
+    assunto = serializers.CharField(max_length=120, validators=[safe_text_validator])
+    mensagem = serializers.CharField(max_length=5000, validators=[safe_text_validator])
+    cpf_candidatos = serializers.ListField(
+        child=serializers.CharField(max_length=15, validators=[cpf_format_validator]),
+        required=False,
+        allow_empty=False,
+    )
+
+    def validate(self, attrs):
+        """Valida selecao manual de candidatos para envio RH."""
+        tipo_destinatarios = attrs['tipo_destinatarios']
+        cpf_candidatos = attrs.get('cpf_candidatos')
+
+        if tipo_destinatarios == self.TIPO_SELECIONADOS and not cpf_candidatos:
+            raise serializers.ValidationError({
+                'cpf_candidatos': 'Informe ao menos um candidato para envio selecionado.',
+            })
+
+        if tipo_destinatarios != self.TIPO_SELECIONADOS and cpf_candidatos:
+            raise serializers.ValidationError({
+                'cpf_candidatos': 'Use cpf_candidatos apenas com tipo_destinatarios=selecionados.',
+            })
+
+        attrs['assunto'] = normalize_required_text(attrs.get('assunto'), 'assunto')
+        mensagem = str(attrs.get('mensagem') or '').strip()
+        if not mensagem:
+            raise serializers.ValidationError({'mensagem': 'mensagem nao pode ser vazio.'})
+        attrs['mensagem'] = mensagem
+        if cpf_candidatos:
+            attrs['cpf_candidatos'] = list(dict.fromkeys(cpf_candidatos))
+
+        return attrs
 
 
 class CandidatoVagaWriteSerializer(serializers.ModelSerializer):
@@ -545,11 +672,19 @@ class CandidaturaCreateSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
-        """Cria candidatura com status inicial candidato."""
+        """Cria candidatura com status publico e triagem automatica."""
+        candidato = self.context['candidato']
+        vaga = validated_data['id_vaga']
+        triagem = analisar_candidatura(candidato, vaga)
         return CandidatoVaga.objects.create(
-            cpf_candidato=self.context['candidato'],
-            id_vaga=validated_data['id_vaga'],
-            status_processo='candidatado',
+            cpf_candidato=candidato,
+            id_vaga=vaga,
+            status_processo='andamento',
+            triagem_automatica_aprovada=triagem.aprovado,
+            triagem_automatica_motivo=triagem.motivo,
+            triagem_automatica_palavras_chave=', '.join(triagem.palavras_chave),
+            triagem_automatica_pontuacao=triagem.pontuacao,
+            triagem_automatica_classificacao=triagem.classificacao,
         )
 
 

@@ -3,7 +3,13 @@ from django.utils import timezone
 from decimal import Decimal
 from rest_framework import serializers
 
-from apps.funcionario.models import Contrato, Funcionario, PlanoCarreira
+from apps.funcionario.models import Contrato, FolhaPagamento, Funcionario, FuncionarioAgenteDocumento, PlanoCarreira
+from apps.funcionario.services.agente_documentos import (
+    delete_important_document_file,
+    extract_text_from_document_file,
+    save_important_document_upload,
+    validate_document_file,
+)
 from apps.validators import (
     cpf_format_validator,
     nome_validators,
@@ -33,6 +39,82 @@ def mask_phone(value):
     return '***********' if value else value
 
 
+def get_file_name(file_value) -> str | None:
+    """Retorna caminho logico de FileField sem gerar URL publica."""
+    return getattr(file_value, 'name', file_value) or None
+
+
+def validate_rh_document_upload(value):
+    """Aceita somente PDF, DOC ou DOCX para documentos RH."""
+    try:
+        validate_document_file(value)
+    except ValueError as exc:
+        raise serializers.ValidationError(str(exc)) from exc
+    return value
+
+
+def safe_user_summary(user, include_email=False):
+    """Retorna resumo minimo do auth_user sem expor flags ou permissoes."""
+    if not user:
+        return None
+
+    data = {
+        'id': getattr(user, 'pk', None),
+        'username': getattr(user, 'username', None),
+    }
+    if include_email:
+        data['email'] = getattr(user, 'email', None)
+    return data
+
+
+def related_summary(obj, id_field, extra_fields=None):
+    """Retorna resumo explicito de relacao sem nested automatico."""
+    if obj is None:
+        return None
+
+    data = {
+        id_field: getattr(obj, id_field, getattr(obj, 'pk', None)),
+    }
+    for field in extra_fields or []:
+        data[field] = getattr(obj, field, None)
+    return data
+
+
+def get_related_or_none(obj, field_name):
+    """Retorna relacao carregada ou None quando instancia em memoria nao tem FK."""
+    try:
+        return getattr(obj, field_name)
+    except obj.__class__._meta.get_field(field_name).remote_field.model.DoesNotExist:
+        return None
+
+
+def setor_summary(setor):
+    """Retorna dados publicos minimos de setor."""
+    return related_summary(setor, 'id_setor', ['nome'])
+
+
+def cargo_summary(cargo):
+    """Retorna dados publicos minimos de cargo."""
+    data = related_summary(cargo, 'id_cargo', ['nome'])
+    if data is not None:
+        data['fk_id_setor'] = setor_summary(get_related_or_none(cargo, 'fk_id_setor'))
+    return data
+
+
+def funcionario_summary(funcionario):
+    """Retorna resumo funcional sem CPF, e-mail, telefone ou user."""
+    if funcionario is None:
+        return None
+
+    return {
+        'id_funcionario': getattr(funcionario, 'id_funcionario', None),
+        'nome': getattr(funcionario, 'nome', None),
+        'status': getattr(funcionario, 'status', None),
+        'fk_id_setor': setor_summary(get_related_or_none(funcionario, 'fk_id_setor')),
+        'fk_id_cargo': cargo_summary(get_related_or_none(funcionario, 'fk_id_cargo')),
+    }
+
+
 def can_view_funcionario_sensitive(serializer, funcionario):
     """Indica se contexto pode ver dados pessoais do funcionario."""
     request = serializer.context.get('request')
@@ -53,9 +135,12 @@ def can_view_funcionario_sensitive(serializer, funcionario):
 
 
 class FuncionarioReadSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
     cpf = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
     telefone = serializers.SerializerMethodField()
+    fk_id_setor = serializers.SerializerMethodField()
+    fk_id_cargo = serializers.SerializerMethodField()
 
     class Meta:
         model = Funcionario
@@ -72,7 +157,18 @@ class FuncionarioReadSerializer(serializers.ModelSerializer):
             'fk_id_cargo',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_user(self, obj) -> dict | None:
+        """Retorna usuario vinculado sem flags/permissoes internas."""
+        return safe_user_summary(obj.user, include_email=can_view_funcionario_sensitive(self, obj))
+
+    def get_fk_id_setor(self, obj) -> dict | None:
+        """Retorna resumo seguro do setor."""
+        return setor_summary(get_related_or_none(obj, 'fk_id_setor'))
+
+    def get_fk_id_cargo(self, obj) -> dict | None:
+        """Retorna resumo seguro do cargo."""
+        return cargo_summary(get_related_or_none(obj, 'fk_id_cargo'))
 
     def get_cpf(self, obj) -> str | None:
         """Retorna CPF real ou mascarado conforme permissao."""
@@ -155,9 +251,12 @@ class FuncionarioWriteSerializer(serializers.ModelSerializer):
 
 
 class FuncionarioComRelacionamentosReadSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
     cpf = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
     telefone = serializers.SerializerMethodField()
+    fk_id_setor = serializers.SerializerMethodField()
+    fk_id_cargo = serializers.SerializerMethodField()
 
     class Meta:
         model = Funcionario
@@ -178,7 +277,18 @@ class FuncionarioComRelacionamentosReadSerializer(serializers.ModelSerializer):
             'avaliacaodesempenho_fk_id_avaliador_set',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_user(self, obj) -> dict | None:
+        """Retorna usuario vinculado sem flags/permissoes internas."""
+        return safe_user_summary(obj.user, include_email=can_view_funcionario_sensitive(self, obj))
+
+    def get_fk_id_setor(self, obj) -> dict | None:
+        """Retorna resumo seguro do setor."""
+        return setor_summary(get_related_or_none(obj, 'fk_id_setor'))
+
+    def get_fk_id_cargo(self, obj) -> dict | None:
+        """Retorna resumo seguro do cargo."""
+        return cargo_summary(get_related_or_none(obj, 'fk_id_cargo'))
 
     def get_cpf(self, obj) -> str | None:
         """Retorna CPF real ou mascarado em leitura com relacionamentos."""
@@ -200,6 +310,9 @@ class FuncionarioComRelacionamentosReadSerializer(serializers.ModelSerializer):
 
 
 class PlanoCarreiraReadSerializer(serializers.ModelSerializer):
+    fk_id_cargo = serializers.SerializerMethodField()
+    pode_editar = serializers.SerializerMethodField()
+
     class Meta:
         model = PlanoCarreira
         fields = [
@@ -207,9 +320,31 @@ class PlanoCarreiraReadSerializer(serializers.ModelSerializer):
             'fk_id_cargo',
             'descricao',
             'requisitos',
+            'pode_editar',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_fk_id_cargo(self, obj) -> dict | None:
+        """Retorna resumo seguro do cargo vinculado."""
+        return cargo_summary(obj.fk_id_cargo)
+
+    def get_pode_editar(self, obj) -> bool:
+        """Indica se usuario atual pode editar o plano no fluxo de lideranca."""
+        request = self.context.get('request')
+        view = self.context.get('view')
+        if not request or not getattr(request, 'user', None) or not request.user.is_authenticated:
+            return False
+        if view and getattr(view, 'user_has_global_access', None) and view.user_has_global_access():
+            return True
+        if view and getattr(view, 'user_has_manage_lideranca_permission', None) and view.user_has_manage_lideranca_permission():
+            return True
+
+        funcionario_id = getattr(request.user, 'funcionario_id', None)
+        if funcionario_id is None:
+            funcionario = getattr(request.user, 'funcionario', None)
+            funcionario_id = getattr(funcionario, 'pk', None)
+
+        return bool(funcionario_id and str(obj.fk_id_criador_id) == str(funcionario_id))
 
 
 class PlanoCarreiraWriteSerializer(serializers.ModelSerializer):
@@ -244,7 +379,9 @@ class PlanoCarreiraWriteSerializer(serializers.ModelSerializer):
 
 
 class ContratoReadSerializer(serializers.ModelSerializer):
+    fk_id_funcionario = serializers.SerializerMethodField()
     salario = serializers.SerializerMethodField()
+    arquivo = serializers.SerializerMethodField()
 
     class Meta:
         model = Contrato
@@ -255,9 +392,13 @@ class ContratoReadSerializer(serializers.ModelSerializer):
             'salario',
             'data_inicio',
             'data_fim',
+            'arquivo',
         ]
         read_only_fields = fields
-        depth = 1
+
+    def get_fk_id_funcionario(self, obj) -> dict | None:
+        """Retorna resumo seguro do funcionario vinculado."""
+        return funcionario_summary(obj.fk_id_funcionario)
 
     def get_salario(self, obj) -> Decimal | None:
         """Retorna salario apenas para RH/admin ou proprio funcionario."""
@@ -277,6 +418,24 @@ class ContratoReadSerializer(serializers.ModelSerializer):
 
         return None
 
+    def get_arquivo(self, obj) -> str | None:
+        """Retorna caminho do contrato somente para contexto autorizado."""
+        request = self.context.get('request')
+        view = self.context.get('view')
+        user = getattr(request, 'user', None)
+
+        if view and getattr(view, 'user_has_rh_admin_access', None) and view.user_has_rh_admin_access():
+            return get_file_name(obj.arquivo)
+        if user and getattr(user, 'is_authenticated', False):
+            if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+                return get_file_name(obj.arquivo)
+        if view and getattr(view, 'get_request_funcionario_id', None):
+            funcionario_id = view.get_request_funcionario_id(required=False)
+            if str(funcionario_id) == str(obj.fk_id_funcionario_id):
+                return get_file_name(obj.arquivo)
+
+        return None
+
 
 class ContratoWriteSerializer(serializers.ModelSerializer):
     salario = serializers.DecimalField(
@@ -285,6 +444,11 @@ class ContratoWriteSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
         validators=[MinValueValidator(0)],
+    )
+    arquivo = serializers.FileField(
+        required=False,
+        allow_null=True,
+        validators=[validate_rh_document_upload],
     )
 
     class Meta:
@@ -296,6 +460,7 @@ class ContratoWriteSerializer(serializers.ModelSerializer):
             'salario',
             'data_inicio',
             'data_fim',
+            'arquivo',
         ]
         read_only_fields = [
             'id_contrato',
@@ -314,6 +479,150 @@ class ContratoWriteSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class FuncionarioAgenteDocumentoReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FuncionarioAgenteDocumento
+        fields = [
+            'id_documento',
+            'titulo',
+            'arquivo',
+            'ativo',
+            'criado_por',
+            'criado_em',
+            'atualizado_em',
+        ]
+        read_only_fields = fields
+
+
+class FuncionarioAgenteDocumentoWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FuncionarioAgenteDocumento
+        fields = [
+            'id_documento',
+            'titulo',
+            'arquivo',
+            'ativo',
+        ]
+        read_only_fields = [
+            'id_documento',
+        ]
+
+    def validate_titulo(self, value):
+        """Normaliza titulo do documento RH."""
+        return normalize_required_text(value, 'titulo')
+
+    def validate_arquivo(self, value):
+        """Aceita somente documento RH em PDF, DOC ou DOCX."""
+        try:
+            validate_document_file(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+
+        return value
+
+    def validate(self, attrs):
+        """Extrai texto do arquivo quando documento e enviado."""
+        arquivo = attrs.get('arquivo')
+        if arquivo is not None:
+            try:
+                attrs['conteudo_extraido'] = extract_text_from_document_file(arquivo)
+            except ValueError as exc:
+                raise serializers.ValidationError({'arquivo': str(exc)}) from exc
+
+        return attrs
+
+    def create(self, validated_data):
+        """Salva upload fisico em imp_doc e persiste somente caminho relativo."""
+        arquivo = validated_data.pop('arquivo', None)
+        if arquivo is not None:
+            validated_data['arquivo'] = save_important_document_upload(arquivo)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        """Atualiza documento mantendo upload fisico em imp_doc."""
+        arquivo = validated_data.pop('arquivo', None)
+        arquivo_anterior = instance.arquivo.name
+        if arquivo is not None:
+            validated_data['arquivo'] = save_important_document_upload(arquivo)
+        documento = super().update(instance, validated_data)
+        if arquivo is not None and arquivo_anterior != documento.arquivo.name:
+            delete_important_document_file(arquivo_anterior)
+        return documento
+
+
+class FolhaPagamentoReadSerializer(serializers.ModelSerializer):
+    fk_id_funcionario = serializers.SerializerMethodField()
+    arquivo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FolhaPagamento
+        fields = [
+            'id_folha',
+            'fk_id_funcionario',
+            'competencia',
+            'arquivo',
+            'criado_em',
+        ]
+        read_only_fields = fields
+
+    def get_fk_id_funcionario(self, obj) -> dict | None:
+        """Retorna resumo seguro do funcionario vinculado."""
+        return funcionario_summary(obj.fk_id_funcionario)
+
+    def get_arquivo(self, obj) -> str | None:
+        """Retorna caminho da folha apenas para RH/admin ou proprio funcionario."""
+        request = self.context.get('request')
+        view = self.context.get('view')
+        user = getattr(request, 'user', None)
+
+        if view and getattr(view, 'user_has_rh_admin_access', None) and view.user_has_rh_admin_access():
+            return get_file_name(obj.arquivo)
+        if user and getattr(user, 'is_authenticated', False):
+            if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+                return get_file_name(obj.arquivo)
+        if view and getattr(view, 'get_request_funcionario_id', None):
+            funcionario_id = view.get_request_funcionario_id(required=False)
+            if str(funcionario_id) == str(obj.fk_id_funcionario_id):
+                return get_file_name(obj.arquivo)
+
+        return None
+
+
+class FolhaPagamentoWriteSerializer(serializers.ModelSerializer):
+    arquivo = serializers.FileField(validators=[validate_rh_document_upload])
+
+    class Meta:
+        model = FolhaPagamento
+        fields = [
+            'id_folha',
+            'fk_id_funcionario',
+            'competencia',
+            'arquivo',
+            'criado_em',
+        ]
+        read_only_fields = [
+            'id_folha',
+            'criado_em',
+        ]
+
+    def validate_competencia(self, value):
+        """Normaliza competencia opcional da folha."""
+        return normalize_optional_text(value)
+
+
+class FuncionarioAgentePerguntaSerializer(serializers.Serializer):
+    pergunta = serializers.CharField(max_length=500)
+
+    def validate_pergunta(self, value):
+        """Normaliza pergunta do funcionario."""
+        pergunta = normalize_required_text(value, 'pergunta')
+        if len(pergunta) < 5:
+            raise serializers.ValidationError('Pergunta deve ter pelo menos 5 caracteres.')
+        return pergunta
+
+
 FuncionarioSerializer = FuncionarioReadSerializer
 PlanoCarreiraSerializer = PlanoCarreiraReadSerializer
 ContratoSerializer = ContratoReadSerializer
+FolhaPagamentoSerializer = FolhaPagamentoReadSerializer
+FuncionarioAgenteDocumentoSerializer = FuncionarioAgenteDocumentoReadSerializer

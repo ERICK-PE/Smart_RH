@@ -15,6 +15,7 @@ class APIRootRoutingTests(SimpleTestCase):
         self.assertEqual(data['name'], 'Smart-RH API')
         self.assertIn('/api/auth/token/', data['endpoints']['auth']['token'])
         self.assertIn('/api/auth/token/refresh/', data['endpoints']['auth']['refresh'])
+        self.assertIn('/api/auth/me/', data['endpoints']['auth']['me'])
         self.assertIn('/api/setor/', data['endpoints']['setor'])
         self.assertIn('/api/funcionario/', data['endpoints']['funcionario'])
         self.assertIn('/api/avaliacao/', data['endpoints']['avaliacao'])

@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from Smart_RH.api_auth import SmartRHTokenObtainPairView
+from Smart_RH.api_auth import SmartRHMeView, SmartRHTokenObtainPairView
 
 
 def api_root_view(request):
@@ -23,6 +23,7 @@ def api_root_view(request):
             'auth': {
                 'token': request.build_absolute_uri('auth/token/'),
                 'refresh': request.build_absolute_uri('auth/token/refresh/'),
+                'me': request.build_absolute_uri('auth/me/'),
             },
             'setor': request.build_absolute_uri('setor/'),
             'funcionario': request.build_absolute_uri('funcionario/'),
@@ -37,6 +38,7 @@ def api_root_view(request):
 urlpatterns = [
     path('auth/token/', SmartRHTokenObtainPairView.as_view(), name='token-obtain-pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+    path('auth/me/', SmartRHMeView.as_view(), name='auth-me'),
     path('setor/', include('apps.setor.api.urls')),
     path('funcionario/', include('apps.funcionario.api.urls')),
     path('avaliacao/', include('apps.avaliacao.api.urls')),

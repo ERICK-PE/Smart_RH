@@ -5,3 +5,5 @@ django-cors-headers==4.9.0
 djangorestframework-simplejwt==5.5.1
 drf-spectacular==0.29.0
 psycopg2-binary==2.9.11
+pypdf==6.14.2
+openai==2.41.1

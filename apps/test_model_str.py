@@ -4,7 +4,7 @@ from django.test import SimpleTestCase
 
 from apps.avaliacao.models import AnaliseComportamental, AvaliacaoDesempenho
 from apps.candidato_vaga.models import Candidato, CandidatoVaga, Vaga
-from apps.funcionario.models import Contrato, Funcionario, PlanoCarreira
+from apps.funcionario.models import Contrato, FolhaPagamento, Funcionario, PlanoCarreira
 from apps.setor.models import Cargo, Setor
 
 
@@ -31,10 +31,13 @@ class ModelStrTests(SimpleTestCase):
     def test_plano_carreira_e_contrato_usam_identificador_sem_salario(self):
         plano = PlanoCarreira(id_plano=7, descricao='Plano lideranca')
         contrato = Contrato(id_contrato=3, salario=Decimal('4500.00'))
+        folha = FolhaPagamento(id_folha=5, arquivo='folhas_pagamento/folha.pdf')
 
         self.assertEqual(str(plano), 'Plano de carreira 7')
         self.assertEqual(str(contrato), 'Contrato 3')
+        self.assertEqual(str(folha), 'Folha de pagamento 5')
         self.assertNotIn('4500', str(contrato))
+        self.assertNotIn('folha.pdf', str(folha))
 
     def test_candidato_e_vaga_usam_nome_titulo_sem_campos_sensiveis(self):
         candidato = Candidato(

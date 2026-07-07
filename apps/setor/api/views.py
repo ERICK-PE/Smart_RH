@@ -2,7 +2,7 @@ from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.api_mixins import RHAdminModelViewSetMixin, ResumoActionMixin
+from apps.api_mixins import RHAdminOnlyModelViewSetMixin, ResumoActionMixin
 from apps.candidato_vaga.api.serializers import VagaReadSerializer
 from apps.funcionario.api.serializers import FuncionarioReadSerializer, PlanoCarreiraReadSerializer
 from apps.setor.api.filters import CargoFilter, SetorFilter
@@ -15,7 +15,7 @@ from apps.setor.api.serializers import (
 from apps.setor.models import Cargo, Setor
 
 
-class SetorViewSet(RHAdminModelViewSetMixin, ResumoActionMixin, viewsets.ModelViewSet):
+class SetorViewSet(RHAdminOnlyModelViewSetMixin, ResumoActionMixin, viewsets.ModelViewSet):
     queryset = Setor.objects.all().order_by('id_setor')
     serializer_class = SetorReadSerializer
     write_serializer_class = SetorWriteSerializer
@@ -52,14 +52,14 @@ class SetorViewSet(RHAdminModelViewSetMixin, ResumoActionMixin, viewsets.ModelVi
         )
 
 
-class CargoViewSet(RHAdminModelViewSetMixin, ResumoActionMixin, viewsets.ModelViewSet):
-    queryset = Cargo.objects.all().order_by('id_cargo')
+class CargoViewSet(RHAdminOnlyModelViewSetMixin, ResumoActionMixin, viewsets.ModelViewSet):
+    queryset = Cargo.objects.select_related('fk_id_setor').all().order_by('id_cargo')
     serializer_class = CargoReadSerializer
     write_serializer_class = CargoWriteSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_class = CargoFilter
-    filterset_fields = ['id_cargo', 'nome']
-    search_fields = ['nome', 'descricao']
+    filterset_fields = ['id_cargo', 'nome', 'fk_id_setor']
+    search_fields = ['nome', 'descricao', 'fk_id_setor__nome']
 
     @action(detail=True, methods=['get'], url_path='funcionarios')
     def funcionarios(self, request, pk=None):
