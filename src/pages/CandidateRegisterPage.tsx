@@ -1,8 +1,7 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FileUp, X } from 'lucide-react';
 import { api, extractApiError } from '../services/api';
-import { Button, PageHeader } from '../components/ui';
+import { Button, FileDropzone, PageHeader } from '../components/ui';
 
 const MAX_RESUME_FILE_SIZE = 5 * 1024 * 1024;
 const RESUME_ACCEPT = '.pdf,.doc,.docx';
@@ -40,12 +39,6 @@ function validateResumeFile(file: File) {
   return '';
 }
 
-function formatFileSize(size: number) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 /**
  * Tela publica de registro de usuario candidato.
  */
@@ -60,8 +53,7 @@ export function CandidateRegisterPage() {
     setValues((current) => ({ ...current, [name]: value }));
   }
 
-  function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
+  function handleFile(file: File | null) {
     setError('');
 
     if (!file) {
@@ -73,15 +65,10 @@ export function CandidateRegisterPage() {
     if (validationError) {
       setResumeFile(null);
       setError(validationError);
-      event.target.value = '';
       return;
     }
 
     setResumeFile(file);
-  }
-
-  function removeResumeFile() {
-    setResumeFile(null);
   }
 
   async function submit(event: FormEvent) {
@@ -135,32 +122,13 @@ export function CandidateRegisterPage() {
               />
             </label>
           ))}
-          <div className="md:col-span-2 rounded-md border border-line bg-panel p-4 dark:border-slate-700 dark:bg-slate-900">
-            <label className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="flex items-center gap-2 text-sm font-medium text-ink dark:text-slate-100">
-                <FileUp className="h-4 w-4 text-brand" />
-                Anexar curriculo PDF ou Word
-              </span>
-              <input
-                type="file"
-                accept={RESUME_ACCEPT}
-                onChange={handleFile}
-                className="max-w-full text-sm"
-              />
-            </label>
-            {resumeFile ? (
-              <span className="mt-3 inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-xs font-medium text-ink dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
-                {resumeFile.name} ({formatFileSize(resumeFile.size)})
-                <button
-                  type="button"
-                  onClick={removeResumeFile}
-                  className="rounded-sm text-muted hover:text-danger dark:text-slate-400"
-                  aria-label={`Remover ${resumeFile.name}`}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </span>
-            ) : null}
+          <div className="md:col-span-2">
+            <FileDropzone
+              accept={RESUME_ACCEPT}
+              label="Anexar curriculo PDF ou Word"
+              value={resumeFile}
+              onFileChange={handleFile}
+            />
           </div>
           <div className="flex items-center justify-between md:col-span-2">
             <Link to="/login" className="text-sm font-semibold text-brand hover:underline">

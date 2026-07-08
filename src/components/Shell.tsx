@@ -137,7 +137,6 @@ export function Shell() {
           {!isSidebarCollapsed && (
             <div>
               <p className="text-sm font-semibold text-ink dark:text-slate-100">SMART RH</p>
-              <p className="max-w-44 truncate text-xs text-muted dark:text-slate-400">{displayName}</p>
             </div>
           )}
           <button

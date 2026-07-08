@@ -64,10 +64,13 @@ db.sqlite3
 db.sqlite3-journal
 media/*
 !media/curriculos/
+media/curriculos/*
 !media/curriculos/.gitkeep
 !media/contratos/
+media/contratos/*
 !media/contratos/.gitkeep
 !media/folhas_pagamento/
+media/folhas_pagamento/*
 !media/folhas_pagamento/.gitkeep
 imp_doc/*
 !imp_doc/.gitkeep

@@ -47,23 +47,12 @@ Runtime:
 - pypdf
 - openai
 
-Desenvolvimento/testes:
-
-- pytest
-- pytest-django
-
 Instalacao recomendada:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -r requirements-dev.txt
-```
-
-Para instalar apenas runtime:
-
-```powershell
 python -m pip install -r requirements.txt
 ```
 
@@ -99,7 +88,7 @@ OPENAI_AGENT_MODEL=gpt-4o-mini
 1. Instalar Python e PostgreSQL.
 2. Clonar repositorio.
 3. Criar e ativar ambiente virtual.
-4. Instalar dependencias com `python -m pip install -r requirements-dev.txt`.
+4. Instalar dependencias com `python -m pip install -r requirements.txt`.
 5. Criar banco PostgreSQL.
 6. Criar `.env` local com as variaveis acima.
 7. Rodar validacoes.
@@ -110,7 +99,6 @@ Comandos:
 python manage.py check
 python manage.py migrate
 python manage.py test
-python -m pytest
 ```
 
 Servidor local:
@@ -128,14 +116,13 @@ python -m pip check
 python -m compileall Smart_RH apps
 python manage.py check
 python manage.py test
-python -m pytest --collect-only -q
 python manage.py spectacular --validate --file NUL
 ```
 
 Observacao:
 
-- `pytest.ini` limita descoberta para arquivos reais de teste.
-- Arquivos `apps/*/api/test_views.py` sao views locais de teste/debug, nao testes pytest.
+- Rotas e telas temporarias de teste/debug foram removidas dos apps.
+- Testes pytest locais foram arquivados em `.tmp/pytest_archive/2026-07-08/`, pasta ignorada pelo Git.
 - `sitecustomize.py` cria fallback local `.tmp/` apenas quando Python nao encontra nenhum diretorio temporario utilizavel no ambiente.
 
 ## Agente interno de RH

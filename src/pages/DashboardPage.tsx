@@ -44,6 +44,8 @@ type DashboardPayload = {
   };
 };
 
+const CHART_GREEN = 'rgb(91, 167, 101)';
+
 function toNumber(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -120,19 +122,21 @@ function VerticalBarChart({ items }: { items: CountItem[] }) {
   if (!items.length) return <p className="text-sm text-muted">Sem dados.</p>;
 
   return (
-    <div className="flex h-56 items-end gap-3 overflow-x-auto border-b border-line pb-2 dark:border-slate-700">
-      {items.map((item) => {
-        const height = Math.max(6, (toNumber(item.total) / max) * 100);
-        return (
-          <div key={item.label} className="flex min-w-20 flex-col items-center gap-2">
-            <div className="flex h-32 w-10 items-end rounded-t bg-panel dark:bg-slate-900">
-              <div className="w-full rounded-t bg-brand" style={{ height: `${height}%` }} />
+    <div className="h-72 overflow-x-auto border-b border-line dark:border-slate-700">
+      <div className="flex h-full min-w-full items-end justify-center gap-8 px-4 pb-2">
+        {items.map((item) => {
+          const height = Math.max(6, (toNumber(item.total) / max) * 100);
+          return (
+            <div key={item.label} className="flex min-w-24 flex-col items-center gap-2">
+              <div className="flex h-40 w-12 items-end rounded-t bg-panel dark:bg-slate-900">
+                <div className="w-full rounded-t" style={{ height: `${height}%`, backgroundColor: CHART_GREEN }} />
+              </div>
+              <span className="text-xs font-bold text-ink dark:text-slate-100">{item.total}</span>
+              <span className="max-w-28 text-center text-xs text-muted dark:text-slate-400">{item.label}</span>
             </div>
-            <span className="text-xs font-bold text-ink dark:text-slate-100">{item.total}</span>
-            <span className="max-w-24 text-center text-xs text-muted dark:text-slate-400">{item.label}</span>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -142,7 +146,7 @@ function HorizontalBarChart({ items }: { items: CountItem[] }) {
   if (!items.length) return <p className="text-sm text-muted">Sem dados.</p>;
 
   return (
-    <div className="space-y-3">
+    <div className="max-h-96 space-y-3 overflow-y-auto pr-2">
       {items.map((item) => (
         <div key={item.label}>
           <div className="mb-1 flex items-center justify-between gap-3 text-sm">
@@ -150,7 +154,10 @@ function HorizontalBarChart({ items }: { items: CountItem[] }) {
             <span className="font-bold text-ink dark:text-slate-100">{item.total}</span>
           </div>
           <div className="h-3 rounded-full bg-panel dark:bg-slate-900">
-            <div className="h-full rounded-full bg-brand" style={{ width: `${(toNumber(item.total) / max) * 100}%` }} />
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${(toNumber(item.total) / max) * 100}%`, backgroundColor: CHART_GREEN }}
+            />
           </div>
         </div>
       ))}
@@ -163,7 +170,7 @@ function DonutChart({ items }: { items: CountItem[] }) {
   if (!total) return <p className="text-sm text-muted">Sem dados.</p>;
 
   let offset = 25;
-  const colors = ['#38a9db', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const colors = [CHART_GREEN, '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
   const statusColors: Record<string, string> = {
     inativo: '#dc2626',
     inativa: '#dc2626',
@@ -179,8 +186,8 @@ function DonutChart({ items }: { items: CountItem[] }) {
   });
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 text-center">
-      <svg viewBox="0 0 42 42" className="h-44 w-44">
+    <div className="flex min-h-72 flex-col items-center justify-center gap-4 text-center">
+      <svg viewBox="0 0 42 42" className="h-52 w-52">
         <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="currentColor" strokeWidth="8" className="text-panel dark:text-slate-900" />
         {segments.map((segment) => (
           <circle
@@ -217,7 +224,10 @@ function ProgressCoverage({ comPlano, semPlano, percentual }: { comPlano: number
         <strong className="text-ink dark:text-slate-100">{percentual.toFixed(2)}%</strong>
       </div>
       <div className="h-5 rounded-full bg-panel dark:bg-slate-900">
-        <div className="h-full rounded-full bg-brand" style={{ width: `${Math.min(100, Math.max(0, percentual))}%` }} />
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${Math.min(100, Math.max(0, percentual))}%`, backgroundColor: CHART_GREEN }}
+        />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-md bg-panel p-3 dark:bg-slate-900">
@@ -242,7 +252,7 @@ function GaugeChart({ value }: { value: number | null }) {
     <div className="flex flex-col items-center">
       <svg viewBox="0 0 220 130" className="h-40 w-full max-w-72">
         <path d="M30 110 A80 80 0 0 1 190 110" fill="none" stroke="currentColor" strokeWidth="18" className="text-panel dark:text-slate-900" />
-        <path d="M30 110 A80 80 0 0 1 190 110" fill="none" stroke="#38a9db" strokeWidth="18" strokeDasharray={`${percent * 251} 251`} strokeLinecap="round" />
+        <path d="M30 110 A80 80 0 0 1 190 110" fill="none" stroke={CHART_GREEN} strokeWidth="18" strokeDasharray={`${percent * 251} 251`} strokeLinecap="round" />
         <line
           x1="110"
           y1="110"
@@ -272,7 +282,11 @@ function FunnelChart({ data }: { data: DashboardPayload['recrutamento']['funil']
   return (
     <div className="space-y-3">
       {steps.map((step) => (
-        <div key={step.label} className="mx-auto rounded-md bg-brand px-4 py-3 text-center text-sm font-semibold text-white" style={{ width: `${Math.max(32, (step.value / max) * 100)}%` }}>
+        <div
+          key={step.label}
+          className="mx-auto rounded-md px-4 py-3 text-center text-sm font-semibold text-white"
+          style={{ width: `${Math.max(32, (step.value / max) * 100)}%`, backgroundColor: CHART_GREEN }}
+        >
           {step.label}: {step.value}
         </div>
       ))}

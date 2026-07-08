@@ -40,6 +40,9 @@ export type FieldConfig = {
   required?: boolean;
   readOnly?: boolean;
   submit?: boolean;
+  defaultValue?: string;
+  showWhenField?: string;
+  showWhenValue?: string;
   options?: Array<{ label: string; value: string }>;
   relation?: {
     endpoint: string;
@@ -56,6 +59,7 @@ export type ResourceFilterConfig = {
   type?: 'select' | 'text' | 'date';
   options?: Array<{ label: string; value: string }>;
   relation?: FieldConfig['relation'];
+  showWhenFilter?: string;
 };
 
 export type ResourceColumnConfig = {
@@ -80,8 +84,11 @@ export type ResourceConfig = {
   idField: string;
   columns: ResourceColumnConfig[];
   fields: FieldConfig[];
+  createFields?: FieldConfig[];
   searchPlaceholder?: string;
   filters?: ResourceFilterConfig[];
+  requiredFilter?: string;
+  emptyBeforeFilterMessage?: string;
   detailSections?: ResourceDetailSectionConfig[];
   allowCreate?: boolean;
   allowEdit?: boolean;

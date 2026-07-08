@@ -1,7 +1,12 @@
+import mimetypes
+from pathlib import Path
+
 from django.db.models import Count
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -32,6 +37,7 @@ from apps.funcionario.services.agente_documentos import (
     delete_important_document_file,
     load_important_document_sources,
 )
+from apps.funcionario.services.agente_rh import answer_rh_metrics_question_with_openai
 
 
 class FuncionarioViewSet(
@@ -53,6 +59,25 @@ class FuncionarioViewSet(
     filterset_class = FuncionarioFilter
     filterset_fields = ['id_funcionario', 'fk_id_setor', 'fk_id_cargo', 'status']
     search_fields = ['nome', 'status', 'fk_id_setor__nome', 'fk_id_cargo__nome']
+
+    def stream_document_file(self, file_field):
+        """Entrega arquivo protegido sem expor caminho fisico ou URL publica."""
+        if not file_field:
+            raise NotFound('Arquivo nao encontrado.')
+
+        try:
+            file_handle = file_field.open('rb')
+        except (FileNotFoundError, ValueError) as exc:
+            raise NotFound('Arquivo nao encontrado.') from exc
+
+        file_name = Path(file_field.name).name
+        content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+        return FileResponse(
+            file_handle,
+            as_attachment=False,
+            filename=file_name,
+            content_type=content_type,
+        )
 
     def get_queryset(self):
         """Restringe listagem ao proprio funcionario fora do RH/admin."""
@@ -155,6 +180,16 @@ class FuncionarioViewSet(
             ContratoReadSerializer,
         )
 
+    @action(detail=True, methods=['get'], url_path=r'meus-contratos/(?P<id_contrato>[^/.]+)/arquivo')
+    def meu_contrato_arquivo(self, request, pk=None, id_contrato=None):
+        """Permite ao funcionario visualizar arquivo do proprio contrato."""
+        funcionario = self.get_funcionario_comum_object()
+        contrato = get_object_or_404(
+            funcionario.contrato_set.all(),
+            pk=id_contrato,
+        )
+        return self.stream_document_file(contrato.arquivo)
+
     @action(detail=True, methods=['get'], url_path='meus-contratos-pdf')
     def meus_contratos_pdf(self, request, pk=None):
         """Sinaliza ponto futuro para PDFs de contrato do funcionario."""
@@ -173,6 +208,16 @@ class FuncionarioViewSet(
             FolhaPagamentoReadSerializer,
         )
 
+    @action(detail=True, methods=['get'], url_path=r'folha-pagamento/(?P<id_folha>[^/.]+)/arquivo')
+    def folha_pagamento_arquivo(self, request, pk=None, id_folha=None):
+        """Permite ao funcionario visualizar arquivo da propria folha."""
+        funcionario = self.get_funcionario_comum_object()
+        folha = get_object_or_404(
+            funcionario.folhapagamento_set.all(),
+            pk=id_folha,
+        )
+        return self.stream_document_file(folha.arquivo)
+
     @action(detail=True, methods=['get'], url_path='minhas-avaliacoes-desempenho')
     def minhas_avaliacoes_desempenho(self, request, pk=None):
         """Lista avaliacoes de desempenho do proprio funcionario."""
@@ -184,10 +229,10 @@ class FuncionarioViewSet(
 
     @action(detail=True, methods=['get'], url_path='meu-plano-carreira')
     def meu_plano_carreira(self, request, pk=None):
-        """Lista planos de carreira relacionados ao cargo do funcionario."""
+        """Lista apenas o plano de carreira mais recente do cargo do funcionario."""
         funcionario = self.get_funcionario_comum_object()
         return self.paginated_serializer_response(
-            PlanoCarreira.objects.filter(fk_id_cargo=funcionario.fk_id_cargo).order_by('id_plano'),
+            PlanoCarreira.objects.filter(fk_id_cargo_id=funcionario.fk_id_cargo_id).order_by('-id_plano')[:1],
             PlanoCarreiraReadSerializer,
         )
 
@@ -542,13 +587,25 @@ class FuncionarioAgenteDocumentoViewSet(
 
     @action(detail=False, methods=['post'], url_path='perguntar')
     def perguntar(self, request):
-        """Responde pergunta usando documentos ativos cadastrados pelo RH."""
-        if not self.user_has_global_access():
+        """Responde pergunta conforme perfil: RH por metricas, demais por documentos."""
+        user_is_rh_admin = self.user_has_global_access()
+        if not user_is_rh_admin:
             self.get_request_funcionario_id()
 
         serializer = FuncionarioAgentePerguntaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         pergunta = serializer.validated_data['pergunta']
+
+        if user_is_rh_admin:
+            try:
+                resposta = answer_rh_metrics_question_with_openai(pergunta)
+            except ValueError as exc:
+                return Response({'detail': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+            return Response({
+                'pergunta': pergunta,
+                **resposta,
+            })
 
         documentos = load_important_document_sources()
         if not documentos:

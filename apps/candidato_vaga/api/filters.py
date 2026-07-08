@@ -7,10 +7,18 @@ from apps.candidato_vaga.models import Candidato, CandidatoVaga, Vaga
 class CandidatoFilter(filters.FilterSet):
     nome = filters.CharFilter(field_name='nome', lookup_expr='icontains')
     possui_curriculo = filters.BooleanFilter(method='filter_possui_curriculo')
+    vaga = filters.NumberFilter(method='filter_vaga')
+    triagem_automatica_aprovada = filters.BooleanFilter(method='filter_triagem_automatica_aprovada')
 
     class Meta:
         model = Candidato
-        fields = ['cpf_candidato', 'nome', 'possui_curriculo']
+        fields = [
+            'cpf_candidato',
+            'nome',
+            'possui_curriculo',
+            'vaga',
+            'triagem_automatica_aprovada',
+        ]
 
     def filter_possui_curriculo(self, queryset, name, value):
         """Filtra candidatos com ou sem curriculo preenchido."""
@@ -18,6 +26,14 @@ class CandidatoFilter(filters.FilterSet):
         if value:
             return queryset.exclude(empty_curriculo)
         return queryset.filter(empty_curriculo)
+
+    def filter_vaga(self, queryset, name, value):
+        """Filtra candidatos vinculados a uma vaga especifica."""
+        return queryset.filter(candidatovaga__id_vaga=value).distinct()
+
+    def filter_triagem_automatica_aprovada(self, queryset, name, value):
+        """Filtra candidatos pelo resultado da triagem automatica da candidatura."""
+        return queryset.filter(candidatovaga__triagem_automatica_aprovada=value).distinct()
 
 
 class VagaFilter(filters.FilterSet):

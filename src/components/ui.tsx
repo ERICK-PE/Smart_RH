@@ -1,5 +1,17 @@
-import { AlertTriangle, Check, Eye, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Check,
+  Eye,
+  FileUp,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api, extractApiError, listResource } from '../services/api';
@@ -74,6 +86,100 @@ export function SensitiveValue({ value }: { value: unknown }) {
   );
 }
 
+function formatUploadFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function FileDropzone({
+  accept = '.pdf,.doc,.docx',
+  disabled,
+  helper = 'Arraste e solte o arquivo aqui ou escolha pelo botão.',
+  label = 'Arquivo PDF ou Word',
+  required,
+  value,
+  onFileChange,
+}: {
+  accept?: string;
+  disabled?: boolean;
+  helper?: string;
+  label?: string;
+  required?: boolean;
+  value?: File | null;
+  onFileChange: (file: File | null) => void;
+}) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  function chooseFile(file: File | null) {
+    if (disabled) return;
+    onFileChange(file);
+  }
+
+  function handleInput(event: ChangeEvent<HTMLInputElement>) {
+    chooseFile(event.target.files?.[0] ?? null);
+    event.target.value = '';
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (!disabled) setIsDragging(true);
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDragging(false);
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDragging(false);
+    chooseFile(event.dataTransfer.files?.[0] ?? null);
+  }
+
+  return (
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`min-w-0 overflow-hidden rounded-md border border-dashed p-4 transition ${
+        isDragging
+          ? 'border-brand bg-brand/10'
+          : 'border-line bg-panel dark:border-slate-700 dark:bg-slate-900'
+      } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+    >
+      <div className="flex min-w-0 flex-col gap-3">
+        <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-ink dark:text-slate-100">
+          <FileUp className="h-4 w-4 shrink-0 text-brand" />
+          <span className="min-w-0 break-words">{label}</span>
+        </span>
+        <input
+          type="file"
+          accept={accept}
+          aria-required={required}
+          disabled={disabled}
+          onChange={handleInput}
+          className="max-w-full min-w-0 text-sm file:mr-3 file:max-w-full file:rounded-md file:border-0 file:bg-brand file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
+        />
+      </div>
+      <p className="mt-2 break-words text-xs text-muted dark:text-slate-400">{helper}</p>
+      {value ? (
+        <span className="mt-3 inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-xs font-medium text-ink dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+          {value.name} ({formatUploadFileSize(value.size)})
+          <button
+            type="button"
+            onClick={() => chooseFile(null)}
+            className="rounded-sm text-muted hover:text-danger dark:text-slate-400"
+            aria-label={`Remover ${value.name}`}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * Modal simples usado por formularios e confirmacoes.
  */
@@ -125,6 +231,34 @@ function renderCellValue(value: unknown, maxLength?: number, format?: 'fileName'
   const rendered = format === 'fileName' ? fileNameFromPath(value) : format === 'date' ? dateOnly(value) : displayValue(value);
   if (!maxLength || rendered.length <= maxLength) return rendered;
   return `${rendered.slice(0, maxLength).trimEnd()}...`;
+}
+
+type SortDirection = 'asc' | 'desc';
+
+function sortableValue(row: ApiRecord, column: ResourceConfig['columns'][number]) {
+  const value = row[column.key];
+  if (value === null || value === undefined || value === '') return '';
+  if (typeof value === 'number') return value;
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  if (column.format === 'date' && typeof value === 'string') {
+    const time = new Date(value).getTime();
+    return Number.isNaN(time) ? value.toLowerCase() : time;
+  }
+  return renderCellValue(value, undefined, column.format).toLowerCase();
+}
+
+function compareSortableValues(left: string | number, right: string | number) {
+  if (typeof left === 'number' && typeof right === 'number') return left - right;
+  return String(left).localeCompare(String(right), 'pt-BR', {
+    numeric: true,
+    sensitivity: 'base',
+  });
+}
+
+function SortIcon({ active, direction }: { active: boolean; direction?: SortDirection }) {
+  if (!active) return <ArrowUpDown className="h-3.5 w-3.5 text-muted" />;
+  if (direction === 'asc') return <ArrowUp className="h-3.5 w-3.5 text-brand" />;
+  return <ArrowDown className="h-3.5 w-3.5 text-brand" />;
 }
 
 function renderInlineBold(text: string) {
@@ -213,7 +347,14 @@ function ResourceForm({
   submitLabel?: string;
 }) {
   const [values, setValues] = useState<ApiRecord>({});
+  const [formError, setFormError] = useState('');
   const hasFileField = fields.some((field) => field.type === 'file');
+  const isEditing = Boolean(initial);
+
+  function isFieldVisible(field: FieldConfig, currentValues = values) {
+    if (!field.showWhenField) return true;
+    return String(currentValues[field.showWhenField] ?? '') === field.showWhenValue;
+  }
 
   useEffect(() => {
     const next: ApiRecord = {};
@@ -227,7 +368,7 @@ function ResourceForm({
         next[field.name] = String((value as ApiRecord)[field.relation.idField] ?? '');
         return;
       }
-      next[field.name] = typeof value === 'object' ? '' : (value ?? '');
+      next[field.name] = typeof value === 'object' ? '' : (value ?? field.defaultValue ?? '');
     });
     setValues(next);
   }, [fields, initial]);
@@ -240,14 +381,28 @@ function ResourceForm({
     setValues((current) => ({ ...current, [name]: file ?? '' }));
   }
 
+  function isFieldRequired(field: FieldConfig) {
+    if (field.type === 'file' && isEditing) return false;
+    return field.required;
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault();
+    setFormError('');
     const payload: ApiRecord | FormData = hasFileField ? new FormData() : {};
+    let missingField = '';
     fields.forEach((field) => {
+      if (missingField) return;
+      if (!isFieldVisible(field)) return;
       if (field.submit === false) return;
       if (field.readOnly) return;
       const value = values[field.name];
-      if (!field.required && value === '') return;
+      const required = isFieldRequired(field);
+      if (required && (value === '' || value === null || value === undefined)) {
+        missingField = field.label;
+        return;
+      }
+      if (!required && value === '') return;
       if (payload instanceof FormData) {
         if (value instanceof File) {
           payload.append(field.name, value);
@@ -258,19 +413,30 @@ function ResourceForm({
       }
       payload[field.name] = value === '' ? null : value;
     });
+    if (missingField) {
+      setFormError(`Preencha o campo ${missingField}.`);
+      return;
+    }
     onSubmit(payload);
   }
 
   return (
     <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-      {fields.map((field) => (
-        <label key={field.name} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
-          <span className="mb-1 block text-sm font-medium text-ink dark:text-slate-100">{field.label}</span>
+      {formError ? (
+        <p className="rounded-md border border-danger/30 bg-red-50 p-3 text-sm text-danger md:col-span-2 dark:bg-red-950/30">
+          {formError}
+        </p>
+      ) : null}
+      {fields.filter((field) => isFieldVisible(field)).map((field) => (
+        <div key={field.name} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
+          {field.type === 'file' ? null : (
+            <span className="mb-1 block text-sm font-medium text-ink dark:text-slate-100">{field.label}</span>
+          )}
           {field.relation ? (
             <RelationPicker
               field={field}
               value={String(values[field.name] ?? '')}
-              required={field.required}
+              required={isFieldRequired(field)}
               disabled={field.readOnly}
               onChange={(value) => update(field.name, value)}
             />
@@ -278,7 +444,7 @@ function ResourceForm({
             <textarea
               className="focus-ring min-h-28 w-full rounded-md border border-line bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               value={String(values[field.name] ?? '')}
-              required={field.required}
+              required={isFieldRequired(field)}
               readOnly={field.readOnly}
               onChange={(event) => update(field.name, event.target.value)}
             />
@@ -286,7 +452,7 @@ function ResourceForm({
             <select
               className="focus-ring w-full rounded-md border border-line bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               value={String(values[field.name] ?? '')}
-              required={field.required}
+              required={isFieldRequired(field)}
               disabled={field.readOnly}
               onChange={(event) => update(field.name, event.target.value)}
             >
@@ -298,25 +464,25 @@ function ResourceForm({
               ))}
             </select>
           ) : field.type === 'file' ? (
-            <input
-              className="focus-ring w-full rounded-md border border-line bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              type="file"
+            <FileDropzone
               accept=".pdf,.doc,.docx"
-              required={field.required}
+              required={isFieldRequired(field)}
               disabled={field.readOnly}
-              onChange={(event) => updateFile(field.name, event.target.files?.[0] ?? null)}
+              label={field.label}
+              value={values[field.name] instanceof File ? (values[field.name] as File) : null}
+              onFileChange={(file) => updateFile(field.name, file)}
             />
           ) : (
             <input
               className="focus-ring w-full rounded-md border border-line bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               type={field.type || 'text'}
               value={String(values[field.name] ?? '')}
-              required={field.required}
+              required={isFieldRequired(field)}
               readOnly={field.readOnly}
               onChange={(event) => update(field.name, event.target.value)}
             />
           )}
-        </label>
+        </div>
       ))}
       <div className="flex justify-end gap-2 md:col-span-2">
         <Button type="submit" disabled={submitting}>
@@ -434,8 +600,12 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   const [deleting, setDeleting] = useState<ApiRecord | null>(null);
   const [expandedResult, setExpandedResult] = useState<{ title: string; value: unknown } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: SortDirection } | null>(null);
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => [config.endpoint, page, filters], [config.endpoint, page, filters]);
+  const hasRequiredFilter = !config.requiredFilter || Boolean(filters[config.requiredFilter]);
+  const visibleFilters =
+    config.filters?.filter((filter) => !filter.showWhenFilter || Boolean(filters[filter.showWhenFilter])) ?? [];
 
   const query = useQuery({
     queryKey,
@@ -444,6 +614,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
         page,
         ...Object.fromEntries(Object.entries(filters).filter(([, value]) => value)),
       }),
+    enabled: hasRequiredFilter,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: [config.endpoint] });
@@ -473,7 +644,42 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
     onError: (mutationError) => setError(extractApiError(mutationError)),
   });
 
-  const rows = query.data?.results ?? [];
+  const rows = hasRequiredFilter ? query.data?.results ?? [] : [];
+  const sortedRows = useMemo(() => {
+    if (!sortConfig) return rows;
+    const column = config.columns.find((item) => item.key === sortConfig.key);
+    if (!column) return rows;
+    const directionMultiplier = sortConfig.direction === 'asc' ? 1 : -1;
+
+    return [...rows].sort((left, right) => {
+      const result = compareSortableValues(
+        sortableValue(left, column),
+        sortableValue(right, column),
+      );
+      return result * directionMultiplier;
+    });
+  }, [config.columns, rows, sortConfig]);
+
+  function updateFilter(name: string, value: string) {
+    setFilters((current) => {
+      const next = { ...current, [name]: value };
+      if (!value) {
+        config.filters?.forEach((filter) => {
+          if (filter.showWhenFilter === name) delete next[filter.name];
+        });
+      }
+      return next;
+    });
+    setPage(1);
+  }
+
+  function toggleSort(columnKey: string) {
+    setSortConfig((current) => {
+      if (current?.key !== columnKey) return { key: columnKey, direction: 'asc' };
+      if (current.direction === 'asc') return { key: columnKey, direction: 'desc' };
+      return null;
+    });
+  }
 
   return (
     <section>
@@ -491,26 +697,20 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
       />
 
       <div className="mb-4 flex flex-col gap-3 rounded-md border border-line bg-white p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-around dark:border-slate-700 dark:bg-slate-950">
-        {config.filters?.map((filter) => (
+        {visibleFilters.map((filter) => (
           <label key={filter.name} className="w-full sm:w-48">
             <span className="mb-1 block text-xs font-semibold uppercase text-muted dark:text-slate-400">{filter.label}</span>
             {filter.relation ? (
               <RelationFilterSelect
                 filter={filter}
                 value={filters[filter.name] ?? ''}
-                onChange={(value) => {
-                  setFilters((current) => ({ ...current, [filter.name]: value }));
-                  setPage(1);
-                }}
+                onChange={(value) => updateFilter(filter.name, value)}
               />
             ) : filter.type === 'select' ? (
               <select
                 className="focus-ring w-full rounded-md border border-line bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 value={filters[filter.name] ?? ''}
-                onChange={(event) => {
-                  setFilters((current) => ({ ...current, [filter.name]: event.target.value }));
-                  setPage(1);
-                }}
+                onChange={(event) => updateFilter(filter.name, event.target.value)}
               >
                 <option value="">Todos</option>
                 {filter.options?.map((option) => (
@@ -524,10 +724,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                 className="focus-ring w-full rounded-md border border-line bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 type={filter.type === 'date' ? 'date' : 'text'}
                 value={filters[filter.name] ?? ''}
-                onChange={(event) => {
-                  setFilters((current) => ({ ...current, [filter.name]: event.target.value }));
-                  setPage(1);
-                }}
+                onChange={(event) => updateFilter(filter.name, event.target.value)}
               />
             )}
           </label>
@@ -542,7 +739,9 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
       ) : null}
 
       <div className="overflow-hidden rounded-md border border-line bg-white dark:border-slate-700 dark:bg-slate-950">
-        {query.isLoading ? (
+        {!hasRequiredFilter ? (
+          <PageState title={config.emptyBeforeFilterMessage ?? 'Selecione um filtro para consultar'} variant="empty" />
+        ) : query.isLoading ? (
           <PageState title="Carregando dados" />
         ) : query.isError ? (
           <PageState title="Não foi possível carregar" variant="error" />
@@ -554,15 +753,32 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
               <thead className="bg-panel dark:bg-slate-900">
                 <tr>
                   {config.columns.map((column) => (
-                    <th key={column.key} className="px-4 py-3 text-left font-semibold text-ink dark:text-slate-100">
-                      {column.label}
+                    <th
+                      key={column.key}
+                      className="px-4 py-3 text-left font-semibold text-ink dark:text-slate-100"
+                      aria-sort={
+                        sortConfig?.key === column.key
+                          ? sortConfig.direction === 'asc'
+                            ? 'ascending'
+                            : 'descending'
+                          : 'none'
+                      }
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(column.key)}
+                        className="focus-ring inline-flex items-center gap-2 rounded-md p-1 text-left hover:bg-white/70 dark:hover:bg-slate-800"
+                      >
+                        <span>{column.label}</span>
+                        <SortIcon active={sortConfig?.key === column.key} direction={sortConfig?.direction} />
+                      </button>
                     </th>
                   ))}
                   <th className="w-32 px-4 py-3 text-right font-semibold text-ink dark:text-slate-100">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line dark:divide-slate-700">
-                {rows.map((row) => (
+                {sortedRows.map((row) => (
                   <tr key={getRecordId(row, config.idField)} className="hover:bg-panel/70 dark:hover:bg-slate-900">
                     {config.columns.map((column) => (
                       <td key={column.key} className="px-4 py-3 text-slate-700 dark:text-slate-200">
@@ -649,7 +865,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
       {creating ? (
         <Modal title={config.createTitle ?? `Novo ${config.title}`} onClose={() => setCreating(false)}>
           <ResourceForm
-            fields={config.fields}
+            fields={config.createFields ?? config.fields}
             submitting={saveMutation.isPending}
             submitLabel={config.createSubmitLabel}
             onSubmit={(payload) => saveMutation.mutate({ payload })}

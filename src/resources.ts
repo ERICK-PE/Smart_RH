@@ -20,6 +20,12 @@ const funcionarioRelation = {
   hideIdColumn: true,
 };
 
+const vagaRelation = {
+  endpoint: '/candidato/vagas/',
+  idField: 'id_vaga',
+  labelField: 'titulo',
+};
+
 const vagaStatusOptions = [
   { label: 'Aberta', value: 'aberta' },
   { label: 'Andamento', value: 'andamento' },
@@ -73,6 +79,7 @@ export const resources = {
       { name: 'descricao', label: 'Descricao', type: 'textarea' },
     ],
     filters: [
+      { name: 'search', label: 'Buscar nome/descricao' },
       { name: 'possui_funcionarios', label: 'Possui funcionarios', type: 'select', options: [
         { label: 'Sim', value: 'true' },
         { label: 'Nao', value: 'false' },
@@ -103,6 +110,7 @@ export const resources = {
       { name: 'descricao', label: 'Descricao', type: 'textarea' },
     ],
     filters: [
+      { name: 'search', label: 'Buscar nome/descricao/setor' },
       { name: 'setor', label: 'Setor', relation: setorRelation },
       { name: 'possui_funcionarios', label: 'Possui funcionarios', type: 'select', options: [
         { label: 'Sim', value: 'true' },
@@ -294,10 +302,42 @@ export const resources = {
       { key: 'data_analise', label: 'Data' },
     ],
     fields: [
-      { name: 'fk_id_funcionario', label: 'Funcionario', relation: funcionarioRelation },
-      { name: 'fk_id_setor', label: 'Setor', relation: setorRelation },
+      { name: 'fk_id_funcionario', label: 'Funcionario', required: true, relation: funcionarioRelation },
+      { name: 'resultado', label: 'Resultado', type: 'textarea' },
+      { name: 'data_analise', label: 'Data da analise', type: 'date' },
+    ],
+    createFields: [
+      {
+        name: 'tipo_destino',
+        label: 'Enviar para',
+        type: 'select',
+        required: true,
+        submit: false,
+        defaultValue: 'funcionario',
+        options: [
+          { label: 'Funcionario', value: 'funcionario' },
+          { label: 'Setor', value: 'setor' },
+        ],
+      },
+      {
+        name: 'fk_id_funcionario',
+        label: 'Funcionario',
+        required: true,
+        relation: funcionarioRelation,
+        showWhenField: 'tipo_destino',
+        showWhenValue: 'funcionario',
+      },
+      {
+        name: 'fk_id_setor',
+        label: 'Setor',
+        required: true,
+        relation: setorRelation,
+        showWhenField: 'tipo_destino',
+        showWhenValue: 'setor',
+      },
     ],
     filters: [
+      { name: 'search', label: 'Buscar funcionario' },
       { name: 'funcionario_nome', label: 'Nome funcionario' },
       { name: 'setor', label: 'Setor', relation: setorRelation },
       { name: 'data_analise_de', label: 'Data criada de', type: 'date' },
@@ -382,6 +422,8 @@ export const resources = {
     description: 'Consulta administrativa de candidatos e curriculos conforme permissao.',
     endpoint: '/candidato/candidatos/',
     idField: 'cpf_candidato',
+    requiredFilter: 'vaga',
+    emptyBeforeFilterMessage: 'Selecione uma vaga para listar candidatos.',
     columns: [
       { key: 'cpf_candidato', label: 'CPF' },
       { key: 'nome', label: 'Nome' },
@@ -392,9 +434,35 @@ export const resources = {
     fields: [],
     filters: [
       {
+        name: 'vaga',
+        label: 'Vaga',
+        relation: vagaRelation,
+      },
+      {
+        name: 'search',
+        label: 'Buscar nome',
+        showWhenFilter: 'vaga',
+      },
+      {
         name: 'possui_curriculo',
-        label: 'Possui curriculo',
+        label: 'Possui curriculo?',
         type: 'select',
+        showWhenFilter: 'vaga',
+        options: [
+          { label: 'Sim', value: 'true' },
+          { label: 'Nao', value: 'false' },
+        ],
+      },
+      {
+        name: 'nome',
+        label: 'Nome',
+        showWhenFilter: 'vaga',
+      },
+      {
+        name: 'triagem_automatica_aprovada',
+        label: 'Aprovado triagem',
+        type: 'select',
+        showWhenFilter: 'vaga',
         options: [
           { label: 'Sim', value: 'true' },
           { label: 'Nao', value: 'false' },
