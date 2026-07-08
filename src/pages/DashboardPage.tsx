@@ -164,16 +164,23 @@ function DonutChart({ items }: { items: CountItem[] }) {
 
   let offset = 25;
   const colors = ['#38a9db', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const statusColors: Record<string, string> = {
+    inativo: '#dc2626',
+    inativa: '#dc2626',
+    inativos: '#dc2626',
+    inativas: '#dc2626',
+  };
   const segments = items.map((item, index) => {
     const value = (toNumber(item.total) / total) * 100;
-    const segment = { ...item, value, color: colors[index % colors.length], offset };
+    const normalizedLabel = item.label.toLowerCase().trim();
+    const segment = { ...item, value, color: statusColors[normalizedLabel] ?? colors[index % colors.length], offset };
     offset -= value;
     return segment;
   });
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-center">
-      <svg viewBox="0 0 42 42" className="h-36 w-36">
+    <div className="flex flex-col items-center justify-center gap-4 text-center">
+      <svg viewBox="0 0 42 42" className="h-44 w-44">
         <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="currentColor" strokeWidth="8" className="text-panel dark:text-slate-900" />
         {segments.map((segment) => (
           <circle
@@ -189,9 +196,9 @@ function DonutChart({ items }: { items: CountItem[] }) {
           />
         ))}
       </svg>
-      <div className="space-y-2">
+      <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
         {segments.map((segment) => (
-          <div key={segment.label} className="flex items-center gap-2 text-sm">
+          <div key={segment.label} className="flex items-center justify-center gap-2">
             <span className="h-3 w-3 rounded-full" style={{ backgroundColor: segment.color }} />
             <span className="text-muted dark:text-slate-400">{segment.label}</span>
             <strong className="text-ink dark:text-slate-100">{segment.total}</strong>
@@ -341,8 +348,8 @@ export function DashboardPage() {
               <GaugeChart value={data.avaliacoes.media_avaliacoes} />
             </ChartCard>
             <ChartCard title="Avaliacoes pendentes" description="Funcionarios ativos sem avaliacao registrada." icon={AlertTriangle}>
-              <div className="flex h-full flex-col justify-between gap-4">
-                <strong className="text-5xl text-ink dark:text-slate-100">{data.avaliacoes.avaliacoes_pendentes}</strong>
+              <div className="flex min-h-44 flex-col items-center justify-center gap-3 text-center">
+                <strong className="text-6xl text-ink dark:text-slate-100">{data.avaliacoes.avaliacoes_pendentes}</strong>
                 <Link className="focus-ring inline-flex w-fit rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand/90" to="/rh/avaliacoes">
                   Abrir avaliacoes
                 </Link>

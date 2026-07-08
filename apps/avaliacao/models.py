@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -16,6 +17,81 @@ class AnaliseComportamental(models.Model):
     class Meta:
         managed = False
         db_table = 'analise_comportamental'
+
+
+class AnaliseComportamentalEnvio(models.Model):
+    id_envio = models.AutoField(primary_key=True)
+    fk_id_funcionario = models.ForeignKey(
+        'funcionario.Funcionario',
+        models.DO_NOTHING,
+        db_column='fk_id_funcionario',
+        blank=True,
+        null=True,
+    )
+    fk_id_setor = models.ForeignKey(
+        'setor.Setor',
+        models.DO_NOTHING,
+        db_column='fk_id_setor',
+        blank=True,
+        null=True,
+    )
+    titulo = models.CharField(max_length=150, default='Analise comportamental')
+    perguntas = models.JSONField()
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        models.SET_NULL,
+        db_column='criado_por_id',
+        blank=True,
+        null=True,
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        """Retorna identificador do envio sem expor respostas."""
+        return f'Envio de analise comportamental {self.id_envio}'
+
+    class Meta:
+        managed = False
+        db_table = 'analise_comportamental_envio'
+
+
+class AnaliseComportamentalResposta(models.Model):
+    STATUS_PENDENTE = 'pendente'
+    STATUS_RESPONDIDO = 'respondido'
+    STATUS_CHOICES = [
+        (STATUS_PENDENTE, 'Pendente'),
+        (STATUS_RESPONDIDO, 'Respondido'),
+    ]
+
+    id_resposta = models.AutoField(primary_key=True)
+    fk_id_envio = models.ForeignKey(
+        AnaliseComportamentalEnvio,
+        models.DO_NOTHING,
+        db_column='fk_id_envio',
+        related_name='respostas',
+    )
+    fk_id_funcionario = models.ForeignKey(
+        'funcionario.Funcionario',
+        models.DO_NOTHING,
+        db_column='fk_id_funcionario',
+    )
+    respostas = models.JSONField(default=dict)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
+    respondido_em = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        """Retorna identificador da resposta sem expor conteudo."""
+        return f'Resposta de analise comportamental {self.id_resposta}'
+
+    class Meta:
+        managed = False
+        db_table = 'analise_comportamental_resposta'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['fk_id_envio', 'fk_id_funcionario'],
+                name='analise_comportamental_resposta_envio_funcionario_uniq',
+            ),
+        ]
 
 
 class AvaliacaoDesempenho(models.Model):

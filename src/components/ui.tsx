@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Eye, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Check, Eye, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -106,10 +106,94 @@ function Modal({
   );
 }
 
-function renderCellValue(value: unknown, maxLength?: number) {
+function fileNameFromPath(value: unknown) {
   const rendered = displayValue(value);
+  return rendered.split(/[\\/]/).pop() || rendered;
+}
+
+function dateOnly(value: unknown) {
+  if (!value) return displayValue(value);
+  const text = String(value);
+  const dateOnlyMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) return `${dateOnlyMatch[3]}/${dateOnlyMatch[2]}/${dateOnlyMatch[1]}`;
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return displayValue(value);
+  return parsed.toLocaleDateString('pt-BR');
+}
+
+function renderCellValue(value: unknown, maxLength?: number, format?: 'fileName' | 'date' | 'resultModal') {
+  const rendered = format === 'fileName' ? fileNameFromPath(value) : format === 'date' ? dateOnly(value) : displayValue(value);
   if (!maxLength || rendered.length <= maxLength) return rendered;
   return `${rendered.slice(0, maxLength).trimEnd()}...`;
+}
+
+function renderInlineBold(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    const match = part.match(/^\*\*([^*]+)\*\*$/);
+    if (match) {
+      return <strong key={`${part}-${index}`}>{match[1]}</strong>;
+    }
+    return part;
+  });
+}
+
+function splitSectionBody(body: string) {
+  return body
+    .replace(/\s+-\s+/g, '\n- ')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function AnalysisResultText({ value }: { value: unknown }) {
+  const text = displayValue(value);
+  const sections = text
+    .replace(/\s+(?=\d+\.\s*\*\*)/g, '\n')
+    .split(/\n+/)
+    .map((section) => section.trim())
+    .filter(Boolean);
+
+  if (sections.length === 0 || text === 'Não informado') {
+    return <p className="text-sm text-muted dark:text-slate-400">{text}</p>;
+  }
+
+  return (
+    <div className="space-y-5">
+      {sections.map((section, index) => {
+        const match = section.match(/^\d+\.\s*\*\*([^*]+)\*\*\s*:?\s*(.*)$/s);
+        if (!match) {
+          return (
+            <p key={`${section}-${index}`} className="whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-200">
+              {renderInlineBold(section)}
+            </p>
+          );
+        }
+
+        const [, title, body] = match;
+        const lines = splitSectionBody(body);
+        const bullets = lines.filter((line) => line.startsWith('- '));
+        const paragraphs = lines.filter((line) => !line.startsWith('- '));
+
+        return (
+          <section key={`${title}-${index}`} className="rounded-md border border-line bg-panel p-4 dark:border-slate-700 dark:bg-slate-900">
+            <h3 className="mb-3 text-sm font-semibold text-ink dark:text-slate-100">{title}</h3>
+            <div className="space-y-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
+              {paragraphs.map((paragraph) => (
+                <p key={paragraph}>{renderInlineBold(paragraph)}</p>
+              ))}
+              {bullets.length ? (
+                <ul className="list-disc space-y-1 pl-5">
+                  {bullets.map((bullet) => (
+                    <li key={bullet}>{renderInlineBold(bullet.replace(/^- /, ''))}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
 }
 
 /**
@@ -120,11 +204,13 @@ function ResourceForm({
   initial,
   onSubmit,
   submitting,
+  submitLabel = 'Salvar',
 }: {
   fields: FieldConfig[];
   initial?: ApiRecord | null;
   onSubmit: (data: ApiRecord | FormData) => void;
   submitting?: boolean;
+  submitLabel?: string;
 }) {
   const [values, setValues] = useState<ApiRecord>({});
   const hasFileField = fields.some((field) => field.type === 'file');
@@ -158,6 +244,7 @@ function ResourceForm({
     event.preventDefault();
     const payload: ApiRecord | FormData = hasFileField ? new FormData() : {};
     fields.forEach((field) => {
+      if (field.submit === false) return;
       if (field.readOnly) return;
       const value = values[field.name];
       if (!field.required && value === '') return;
@@ -234,7 +321,7 @@ function ResourceForm({
       <div className="flex justify-end gap-2 md:col-span-2">
         <Button type="submit" disabled={submitting}>
           <Check className="h-4 w-4" />
-          Salvar
+          {submitLabel}
         </Button>
       </div>
     </form>
@@ -339,23 +426,22 @@ function RelationFilterSelect({
  * Tela CRUD generica para recursos DRF paginados.
  */
 export function ResourcePage({ config }: { config: ResourceConfig }) {
-  const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<ApiRecord | null>(null);
   const [viewing, setViewing] = useState<ApiRecord | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<ApiRecord | null>(null);
+  const [expandedResult, setExpandedResult] = useState<{ title: string; value: unknown } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const queryKey = useMemo(() => [config.endpoint, page, search, filters], [config.endpoint, page, search, filters]);
+  const queryKey = useMemo(() => [config.endpoint, page, filters], [config.endpoint, page, filters]);
 
   const query = useQuery({
     queryKey,
     queryFn: () =>
       listResource<ApiRecord>(config.endpoint, {
         page,
-        search: search || undefined,
         ...Object.fromEntries(Object.entries(filters).filter(([, value]) => value)),
       }),
   });
@@ -366,7 +452,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
     mutationFn: async ({ record, payload }: { record?: ApiRecord | null; payload: ApiRecord | FormData }) => {
       const id = record ? getRecordId(record, config.idField) : null;
       if (id) return api.patch(`${config.endpoint}${id}/`, payload);
-      return api.post(config.endpoint, payload);
+      return api.post(config.createEndpoint ?? config.endpoint, payload);
     },
     onSuccess: () => {
       setCreating(false);
@@ -404,21 +490,9 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
         }
       />
 
-      <div className="mb-4 flex flex-col gap-3 rounded-md border border-line bg-white p-4 md:flex-row md:items-center dark:border-slate-700 dark:bg-slate-950">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted" />
-          <input
-            className="focus-ring w-full rounded-md border border-line bg-white py-2 pl-9 pr-3 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-            placeholder={config.searchPlaceholder || 'Buscar'}
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
+      <div className="mb-4 flex flex-col gap-3 rounded-md border border-line bg-white p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-around dark:border-slate-700 dark:bg-slate-950">
         {config.filters?.map((filter) => (
-          <label key={filter.name} className="min-w-48">
+          <label key={filter.name} className="w-full sm:w-48">
             <span className="mb-1 block text-xs font-semibold uppercase text-muted dark:text-slate-400">{filter.label}</span>
             {filter.relation ? (
               <RelationFilterSelect
@@ -448,6 +522,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             ) : (
               <input
                 className="focus-ring w-full rounded-md border border-line bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                type={filter.type === 'date' ? 'date' : 'text'}
                 value={filters[filter.name] ?? ''}
                 onChange={(event) => {
                   setFilters((current) => ({ ...current, [filter.name]: event.target.value }));
@@ -491,10 +566,22 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                   <tr key={getRecordId(row, config.idField)} className="hover:bg-panel/70 dark:hover:bg-slate-900">
                     {config.columns.map((column) => (
                       <td key={column.key} className="px-4 py-3 text-slate-700 dark:text-slate-200">
-                        <SensitiveValue value={renderCellValue(row[column.key], column.maxLength)} />
-                        {column.maxLength ? (
-                          <span className="sr-only">{displayValue(row[column.key])}</span>
-                        ) : null}
+                        {column.format === 'resultModal' ? (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedResult({ title: column.label, value: row[column.key] })}
+                            className="focus-ring rounded-md px-2 py-1 text-sm font-semibold text-brand hover:bg-panel dark:hover:bg-slate-800"
+                          >
+                            Ver resultado
+                          </button>
+                        ) : (
+                          <>
+                            <SensitiveValue value={renderCellValue(row[column.key], column.maxLength, column.format)} />
+                            {column.maxLength ? (
+                              <span className="sr-only">{displayValue(row[column.key])}</span>
+                            ) : null}
+                          </>
+                        )}
                       </td>
                     ))}
                     <td className="px-4 py-3">
@@ -532,7 +619,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                           <button
                             type="button"
                             onClick={() => setDeleting(row)}
-                            className="focus-ring rounded-md border border-line p-2 text-danger hover:bg-red-50 dark:border-slate-700 dark:hover:bg-red-950/30"
+                            className="focus-ring rounded-md bg-red-600 p-2 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
                             aria-label="Excluir"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -560,10 +647,11 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
       </div>
 
       {creating ? (
-        <Modal title={`Novo ${config.title}`} onClose={() => setCreating(false)}>
+        <Modal title={config.createTitle ?? `Novo ${config.title}`} onClose={() => setCreating(false)}>
           <ResourceForm
             fields={config.fields}
             submitting={saveMutation.isPending}
+            submitLabel={config.createSubmitLabel}
             onSubmit={(payload) => saveMutation.mutate({ payload })}
           />
         </Modal>
@@ -599,6 +687,12 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
               </section>
             ))}
           </div>
+        </Modal>
+      ) : null}
+
+      {expandedResult ? (
+        <Modal title={expandedResult.title} onClose={() => setExpandedResult(null)}>
+          <AnalysisResultText value={expandedResult.value} />
         </Modal>
       ) : null}
 

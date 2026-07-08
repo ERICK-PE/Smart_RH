@@ -6,6 +6,7 @@ from apps.avaliacao.models import AnaliseComportamental, AvaliacaoDesempenho
 class AnaliseComportamentalFilter(filters.FilterSet):
     funcionario = filters.NumberFilter(field_name='fk_id_funcionario')
     funcionario_nome = filters.CharFilter(field_name='fk_id_funcionario__nome', lookup_expr='icontains')
+    setor = filters.NumberFilter(field_name='fk_id_funcionario__fk_id_setor')
     data_analise_de = filters.DateFilter(field_name='data_analise', lookup_expr='gte')
     data_analise_ate = filters.DateFilter(field_name='data_analise', lookup_expr='lte')
 
@@ -15,6 +16,7 @@ class AnaliseComportamentalFilter(filters.FilterSet):
             'id_analise',
             'funcionario',
             'funcionario_nome',
+            'setor',
             'data_analise_de',
             'data_analise_ate',
         ]

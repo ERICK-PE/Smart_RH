@@ -22,6 +22,7 @@ class CandidatoFilter(filters.FilterSet):
 
 class VagaFilter(filters.FilterSet):
     titulo = filters.CharFilter(field_name='titulo', lookup_expr='icontains')
+    descricao = filters.CharFilter(field_name='descricao', lookup_expr='icontains')
     requisitos = filters.CharFilter(field_name='requisitos', lookup_expr='icontains')
     status = filters.ChoiceFilter(field_name='status', choices=Vaga.STATUS_CHOICES)
     setor = filters.NumberFilter(field_name='fk_id_setor')
@@ -36,6 +37,7 @@ class VagaFilter(filters.FilterSet):
         fields = [
             'id_vaga',
             'titulo',
+            'descricao',
             'requisitos',
             'status',
             'setor',

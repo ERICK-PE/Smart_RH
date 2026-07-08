@@ -1,3 +1,6 @@
+from datetime import date
+from unittest.mock import Mock
+
 from django.conf import settings
 from django.test import SimpleTestCase
 from rest_framework import viewsets
@@ -85,16 +88,26 @@ class APIFilterConfigurationTests(SimpleTestCase):
             SetorFilter: {'possui_funcionarios', 'possui_vagas'},
             CargoFilter: {'setor', 'setor_nome', 'possui_funcionarios', 'possui_planos_carreira'},
             FuncionarioFilter: {'status', 'setor_nome', 'cargo_nome', 'data_admissao_inicio', 'data_admissao_fim'},
-            PlanoCarreiraFilter: {'texto', 'cargo_nome'},
+            PlanoCarreiraFilter: {'descricao', 'requisitos', 'texto', 'cargo_nome'},
             ContratoFilter: {'funcionario_nome', 'data_inicio_de', 'data_inicio_ate'},
-            FolhaPagamentoFilter: {'funcionario_nome', 'competencia', 'criado_em_de', 'criado_em_ate'},
+            FolhaPagamentoFilter: {'funcionario_nome', 'competencia', 'criado_em', 'criado_em_de', 'criado_em_ate'},
             CandidatoFilter: {'possui_curriculo'},
-            VagaFilter: {'status', 'texto', 'setor_nome', 'com_candidaturas'},
+            VagaFilter: {'status', 'descricao', 'texto', 'setor_nome', 'com_candidaturas'},
             CandidatoVagaFilter: {'candidato_nome', 'vaga_titulo'},
-            AnaliseComportamentalFilter: {'funcionario_nome', 'data_analise_de', 'data_analise_ate'},
+            AnaliseComportamentalFilter: {'funcionario_nome', 'setor', 'data_analise_de', 'data_analise_ate'},
             AvaliacaoDesempenhoFilter: {'avaliador_nome', 'nota_min', 'nota_max', 'data_avaliacao_de', 'data_avaliacao_ate'},
         }
 
         for filterset, filters in expected_filters.items():
             with self.subTest(filterset=filterset.__name__):
                 self.assertTrue(filters.issubset(filterset.base_filters))
+
+    def test_folha_pagamento_filtra_criado_em_por_dia_exato(self):
+        queryset = Mock()
+        filterset = FolhaPagamentoFilter()
+        selected_date = date(2026, 7, 8)
+
+        response = filterset.filter_criado_em(queryset, 'criado_em', selected_date)
+
+        queryset.filter.assert_called_once_with(criado_em__date=selected_date)
+        self.assertIs(response, queryset.filter.return_value)

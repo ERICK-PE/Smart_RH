@@ -26,6 +26,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import type { UserProfile } from '../types';
+import { BehavioralAnalysisNotifications } from './BehavioralAnalysisNotifications';
 import { EmployeeAgentChat } from './EmployeeAgentChat';
 
 type NavChild = {
@@ -220,24 +221,25 @@ export function Shell() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <BehavioralAnalysisNotifications />
             <button
               type="button"
               onClick={toggleTheme}
-              className="focus-ring inline-flex h-10 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-medium text-ink hover:bg-panel dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+              className="focus-ring inline-flex h-10 w-10 items-center justify-center rounded-md border border-line bg-white text-ink hover:bg-panel dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
               aria-pressed={theme === 'dark'}
               aria-label={theme === 'dark' ? 'Alternar para tema claro' : 'Alternar para tema escuro'}
               title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              <span>{theme === 'dark' ? 'Claro' : 'Escuro'}</span>
             </button>
             <button
               type="button"
               onClick={handleLogout}
-              className="focus-ring inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-ink hover:bg-panel dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+              className="focus-ring inline-flex h-10 w-10 items-center justify-center rounded-md bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
+              aria-label="Sair"
+              title="Sair"
             >
               <LogOut className="h-4 w-4" />
-              Sair
             </button>
           </div>
         </header>

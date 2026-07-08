@@ -39,6 +39,7 @@ export type FieldConfig = {
   type?: 'text' | 'textarea' | 'number' | 'date' | 'password' | 'email' | 'select' | 'file';
   required?: boolean;
   readOnly?: boolean;
+  submit?: boolean;
   options?: Array<{ label: string; value: string }>;
   relation?: {
     endpoint: string;
@@ -52,7 +53,7 @@ export type FieldConfig = {
 export type ResourceFilterConfig = {
   name: string;
   label: string;
-  type?: 'select' | 'text';
+  type?: 'select' | 'text' | 'date';
   options?: Array<{ label: string; value: string }>;
   relation?: FieldConfig['relation'];
 };
@@ -61,6 +62,7 @@ export type ResourceColumnConfig = {
   key: string;
   label: string;
   maxLength?: number;
+  format?: 'fileName' | 'date' | 'resultModal';
 };
 
 export type ResourceDetailSectionConfig = {
@@ -70,8 +72,11 @@ export type ResourceDetailSectionConfig = {
 
 export type ResourceConfig = {
   title: string;
+  createTitle?: string;
+  createSubmitLabel?: string;
   description: string;
   endpoint: string;
+  createEndpoint?: string;
   idField: string;
   columns: ResourceColumnConfig[];
   fields: FieldConfig[];
