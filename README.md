@@ -1,53 +1,77 @@
 # Smart-RH
 
-Projeto de conclusao de faculdade de ADS.
+Sistema web para gestao de RH, funcionarios, candidatos, vagas, avaliacoes, documentos e indicadores.
 
-## Estrutura atual
+## Tecnologias utilizadas
 
-Backend Django/DRF com apps:
+### Back-end
 
-- `setor`
-- `funcionario`
-- `candidato_vaga`
-- `avaliacao`
-
-Entrada principal da API:
-
-- `/api/`
-- `/api/auth/token/`
-- `/api/auth/token/refresh/`
-- `/admin/`
-
-## Requisitos de sistema
-
-Validado localmente com:
-
-- Python 3.14.2
-- PostgreSQL
-- pip
-- virtualenv/venv
-
-Banco esperado:
-
-- PostgreSQL acessivel pela maquina local ou rede.
-- Usuario e banco criados antes de rodar `migrate`.
-- Driver Python usado: `psycopg2-binary`.
-
-## Dependencias Python
-
-Runtime:
-
+- Python
 - Django
 - Django REST Framework
 - django-filter
 - django-cors-headers
 - djangorestframework-simplejwt
 - drf-spectacular
-- psycopg2-binary
 - pypdf
-- openai
+- OpenAI SDK
 
-Instalacao recomendada:
+### Front-end
+
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- Axios
+- React Router
+- TanStack React Query
+- React Hook Form
+- Zod
+- Lucide React
+
+### Banco de dados
+
+- PostgreSQL
+- psycopg2-binary
+
+### APIs REST para comunicacao
+
+- Django REST Framework
+- Axios
+- JWT Bearer Token
+- CORS
+- OpenAPI
+
+## Funcionalidades
+
+- Autenticacao por perfil.
+- Painel RH/admin.
+- Cadastro e gestao de funcionarios.
+- Setores e cargos.
+- Contratos e folhas de pagamento com upload de arquivo.
+- Plano de carreira.
+- Avaliacoes de desempenho.
+- Analises comportamentais.
+- Cadastro de candidatos.
+- Vagas e candidaturas.
+- Triagem automatica de curriculos.
+- Dashboard de indicadores.
+- Agente interno de RH com OpenAI.
+- Documentacao da API via Swagger/ReDoc.
+
+## Como rodar localmente
+
+### Requisitos
+
+- Python
+- Node.js
+- PostgreSQL
+- pip
+- npm
+
+### Back-end
+
+Crie ambiente virtual e instale dependencias:
 
 ```powershell
 python -m venv .venv
@@ -56,26 +80,17 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## Variaveis de ambiente
-
-O projeto carrega `.env` na raiz, mas esse arquivo nao deve ser versionado.
-
-Variaveis obrigatorias:
+Crie arquivo `.env` na raiz:
 
 ```env
-DJANGO_SECRET_KEY=troque-este-valor
+DJANGO_SECRET_KEY=sua_chave_local
 DB_ENGINE=django.db.backends.postgresql
 DB_NAME=smart_rh
 DB_USER=postgres
 DB_PASSWORD=sua_senha
 DB_HOST=localhost
 DB_PORT=5432
-```
-
-Variaveis opcionais:
-
-```env
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 CORS_ALLOW_CREDENTIALS=True
 JWT_ACCESS_TOKEN_MINUTES=30
 JWT_REFRESH_TOKEN_DAYS=1
@@ -83,71 +98,60 @@ OPEN_API_KEY=sua_chave_openai
 OPENAI_AGENT_MODEL=gpt-4o-mini
 ```
 
-## Preparar outra maquina
-
-1. Instalar Python e PostgreSQL.
-2. Clonar repositorio.
-3. Criar e ativar ambiente virtual.
-4. Instalar dependencias com `python -m pip install -r requirements.txt`.
-5. Criar banco PostgreSQL.
-6. Criar `.env` local com as variaveis acima.
-7. Rodar validacoes.
-
-Comandos:
+Prepare banco e rode servidor:
 
 ```powershell
 python manage.py check
 python manage.py migrate
-python manage.py test
-```
-
-Servidor local:
-
-```powershell
 python manage.py runserver
 ```
 
-## Testes e validacoes
+API local:
 
-Comandos usados para validar o estado atual:
-
-```powershell
-python -m pip check
-python -m compileall Smart_RH apps
-python manage.py check
-python manage.py test
-python manage.py spectacular --validate --file NUL
+```txt
+http://127.0.0.1:8000/api/
 ```
 
-Observacao:
+Admin Django:
 
-- Rotas e telas temporarias de teste/debug foram removidas dos apps.
-- Testes pytest locais foram arquivados em `.tmp/pytest_archive/2026-07-08/`, pasta ignorada pelo Git.
-- `sitecustomize.py` cria fallback local `.tmp/` apenas quando Python nao encontra nenhum diretorio temporario utilizavel no ambiente.
+```txt
+http://127.0.0.1:8000/admin/
+```
 
-## Agente interno de RH
+### Front-end
 
-O backend possui endpoint para perguntas dos integrantes internos da empresa com base em documentos importantes enviados pelo RH:
+Instale dependencias e rode Vite:
 
-- RH/admin gerencia documentos em `/api/funcionario/agente/`.
-- Funcionario comum, lideranca, RH e admin autenticados perguntam em `POST /api/funcionario/agente/perguntar/`.
-- Documentos aceitos: `.pdf`, `.docx`, `.doc`.
-- Uploads ficam em `imp_doc/` com o nome base original do arquivo.
-- Resposta usa a API da OpenAI com contexto extraido de todos os documentos legiveis em `imp_doc/`.
-- A chave deve vir do ambiente em `OPEN_API_KEY`; `.env` nunca deve ser versionado.
+```powershell
+npm install
+npm run dev
+```
 
-## Seguranca
+Front local:
 
-- Nunca versionar `.env`.
-- Nunca commitar senhas, tokens, chaves JWT, credenciais ou dumps do banco.
-- HTTPS nao e dependencia Python. Em producao, usar proxy/servidor com certificado TLS e revisar `DEBUG`, `ALLOWED_HOSTS`, cookies seguros e origem CORS.
+```txt
+http://127.0.0.1:5173/
+```
 
-## Documentacao da API
+Build:
 
-Quando `drf-spectacular` estiver instalado:
+```powershell
+npm run build
+```
 
-- `/api/schema/`
+## Rotas uteis
+
+- `/api/`
+- `/api/auth/token/`
+- `/api/auth/token/refresh/`
+- `/api/auth/me/`
 - `/api/docs/`
 - `/api/redoc/`
+- `/admin/`
 
-Validacao atual do schema OpenAPI retorna `Errors: 0`. Warnings conhecidos seguem ligados a serializers aninhados com `depth`, `CompositePrimaryKey` e parametros customizados de actions.
+## Observacoes
+
+- `.env` nao deve ser versionado.
+- Arquivos enviados ficam em `media/` e `imp_doc/`.
+- Vite e usado para desenvolvimento/build do front-end.
+- Django continua sendo back-end e API principal.
