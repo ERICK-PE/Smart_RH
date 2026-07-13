@@ -20,11 +20,47 @@ const funcionarioRelation = {
   hideIdColumn: true,
 };
 
+const vagaRelation = {
+  endpoint: '/candidato/vagas/',
+  idField: 'id_vaga',
+  labelField: 'titulo',
+};
+
 const vagaStatusOptions = [
   { label: 'Aberta', value: 'aberta' },
   { label: 'Andamento', value: 'andamento' },
   { label: 'Fechada', value: 'fechada' },
   { label: 'Cancelada', value: 'cancelada' },
+];
+
+const avaliacaoCategoriaOptions = [
+  { label: '90º', value: '90º' },
+  { label: '180º', value: '180º' },
+  { label: '360º', value: '360º' },
+];
+
+const mesOptions = [
+  { label: 'Janeiro', value: 'janeiro' },
+  { label: 'Fevereiro', value: 'fevereiro' },
+  { label: 'Março', value: 'março' },
+  { label: 'Abril', value: 'abril' },
+  { label: 'Maio', value: 'maio' },
+  { label: 'Junho', value: 'junho' },
+  { label: 'Julho', value: 'julho' },
+  { label: 'Agosto', value: 'agosto' },
+  { label: 'Setembro', value: 'setembro' },
+  { label: 'Outubro', value: 'outubro' },
+  { label: 'Novembro', value: 'novembro' },
+  { label: 'Dezembro', value: 'dezembro' },
+];
+
+const tipoContratoOptions = [
+  { label: 'CLT - Prazo Indeterminado', value: 'CLT - Prazo Indeterminado' },
+  { label: 'CLT - Prazo Determinado', value: 'CLT - Prazo Determinado' },
+  { label: 'CLT - Trabalho Intermitente', value: 'CLT - Trabalho Intermitente' },
+  { label: 'Pessoa Jurídica', value: 'Pessoa Jurídica' },
+  { label: 'Estágio', value: 'Estágio' },
+  { label: 'Autônomo', value: 'Autônomo' },
 ];
 
 export const resources = {
@@ -43,6 +79,7 @@ export const resources = {
       { name: 'descricao', label: 'Descricao', type: 'textarea' },
     ],
     filters: [
+      { name: 'search', label: 'Buscar nome/descricao' },
       { name: 'possui_funcionarios', label: 'Possui funcionarios', type: 'select', options: [
         { label: 'Sim', value: 'true' },
         { label: 'Nao', value: 'false' },
@@ -73,8 +110,8 @@ export const resources = {
       { name: 'descricao', label: 'Descricao', type: 'textarea' },
     ],
     filters: [
-      { name: 'setor', label: 'ID setor' },
-      { name: 'setor_nome', label: 'Nome setor' },
+      { name: 'search', label: 'Buscar nome/descricao/setor' },
+      { name: 'setor', label: 'Setor', relation: setorRelation },
       { name: 'possui_funcionarios', label: 'Possui funcionarios', type: 'select', options: [
         { label: 'Sim', value: 'true' },
         { label: 'Nao', value: 'false' },
@@ -121,6 +158,7 @@ export const resources = {
       { name: 'fk_id_cargo', label: 'Cargo', required: true, relation: cargoRelation },
     ],
     filters: [
+      { name: 'nome', label: 'Nome funcionario' },
       {
         name: 'status',
         label: 'Status',
@@ -130,8 +168,8 @@ export const resources = {
           { label: 'Inativo', value: 'inativo' },
         ],
       },
-      { name: 'setor', label: 'Setor' },
-      { name: 'cargo', label: 'Cargo' },
+      { name: 'setor', label: 'Setor', relation: setorRelation },
+      { name: 'cargo', label: 'Cargo', relation: cargoRelation },
     ],
     allowCreate: true,
     allowEdit: true,
@@ -146,22 +184,25 @@ export const resources = {
       { key: 'fk_id_funcionario', label: 'Funcionario' },
       { key: 'tipo_contrato', label: 'Tipo' },
       { key: 'salario', label: 'Salario' },
-      { key: 'data_inicio', label: 'Inicio' },
-      { key: 'data_fim', label: 'Fim' },
-      { key: 'arquivo', label: 'Arquivo' },
+      { key: 'data_inicio', label: 'Inicio', format: 'date' },
+      { key: 'data_fim', label: 'Fim', format: 'date' },
+      { key: 'arquivo', label: 'Arquivo', format: 'fileName' },
     ],
     fields: [
       { name: 'fk_id_funcionario', label: 'Funcionario', required: true, relation: funcionarioRelation },
-      { name: 'tipo_contrato', label: 'Tipo de contrato' },
+      { name: 'tipo_contrato', label: 'Tipo de contrato', type: 'select', options: tipoContratoOptions },
       { name: 'salario', label: 'Salario', type: 'number' },
       { name: 'data_inicio', label: 'Data de inicio', type: 'date', required: true },
       { name: 'data_fim', label: 'Data de fim', type: 'date' },
       { name: 'arquivo', label: 'Arquivo PDF ou Word', type: 'file' },
     ],
     filters: [
-      { name: 'funcionario', label: 'Funcionario' },
       { name: 'funcionario_nome', label: 'Nome funcionario' },
-      { name: 'tipo_contrato', label: 'Tipo contrato' },
+      { name: 'tipo_contrato', label: 'Tipo contrato', type: 'select', options: tipoContratoOptions },
+      { name: 'data_inicio_de', label: 'Inicio de', type: 'date' },
+      { name: 'data_inicio_ate', label: 'Inicio ate', type: 'date' },
+      { name: 'data_fim_de', label: 'Fim de', type: 'date' },
+      { name: 'data_fim_ate', label: 'Fim ate', type: 'date' },
     ],
     allowCreate: true,
     allowEdit: true,
@@ -175,18 +216,18 @@ export const resources = {
     columns: [
       { key: 'fk_id_funcionario', label: 'Funcionario' },
       { key: 'competencia', label: 'Competencia' },
-      { key: 'arquivo', label: 'Arquivo' },
-      { key: 'criado_em', label: 'Criado em' },
+      { key: 'arquivo', label: 'Arquivo', format: 'fileName' },
+      { key: 'criado_em', label: 'Criado em', format: 'date' },
     ],
     fields: [
       { name: 'fk_id_funcionario', label: 'Funcionario', required: true, relation: funcionarioRelation },
-      { name: 'competencia', label: 'Competencia' },
+      { name: 'competencia', label: 'Competencia', type: 'select', options: mesOptions },
       { name: 'arquivo', label: 'Arquivo PDF ou Word', type: 'file', required: true },
     ],
     filters: [
-      { name: 'funcionario', label: 'Funcionario' },
-      { name: 'funcionario_nome', label: 'Nome funcionario' },
-      { name: 'competencia', label: 'Competencia' },
+      { name: 'funcionario', label: 'Funcionario', relation: funcionarioRelation },
+      { name: 'competencia', label: 'Competencia', type: 'select', options: mesOptions },
+      { name: 'criado_em', label: 'Data de criacao', type: 'date' },
     ],
     allowCreate: true,
     allowEdit: true,
@@ -208,9 +249,9 @@ export const resources = {
       { name: 'requisitos', label: 'Requisitos', type: 'textarea' },
     ],
     filters: [
-      { name: 'cargo', label: 'ID cargo' },
-      { name: 'cargo_nome', label: 'Nome cargo' },
-      { name: 'texto', label: 'Descricao/requisitos' },
+      { name: 'cargo', label: 'Nome cargo', relation: cargoRelation },
+      { name: 'descricao', label: 'Descricao' },
+      { name: 'requisitos', label: 'Requisitos' },
     ],
     allowCreate: true,
     allowEdit: true,
@@ -231,15 +272,15 @@ export const resources = {
     fields: [
       { name: 'fk_id_funcionario', label: 'Funcionario avaliado', required: true, relation: funcionarioRelation },
       { name: 'fk_id_avaliador', label: 'Avaliador', required: true, relation: funcionarioRelation },
-      { name: 'categoria', label: 'Categoria' },
+      { name: 'categoria', label: 'Categoria', type: 'select', options: avaliacaoCategoriaOptions },
       { name: 'nota', label: 'Nota', type: 'number' },
       { name: 'comentario', label: 'Comentario', type: 'textarea' },
       { name: 'data_avaliacao', label: 'Data da avaliacao', type: 'date', required: true },
     ],
     filters: [
-      { name: 'funcionario', label: 'Funcionario' },
-      { name: 'avaliador', label: 'Avaliador' },
-      { name: 'categoria', label: 'Categoria' },
+      { name: 'funcionario', label: 'Funcionario', relation: funcionarioRelation },
+      { name: 'avaliador', label: 'Avaliador', relation: funcionarioRelation },
+      { name: 'categoria', label: 'Categoria', type: 'select', options: avaliacaoCategoriaOptions },
       { name: 'nota_min', label: 'Nota minima' },
       { name: 'nota_max', label: 'Nota maxima' },
     ],
@@ -249,12 +290,15 @@ export const resources = {
   },
   analises: {
     title: 'Analises comportamentais',
+    createTitle: 'Enviar analise comportamental',
+    createSubmitLabel: 'Enviar',
     description: 'Gestao de analises comportamentais por funcionario.',
     endpoint: '/avaliacao/analises-comportamentais/',
+    createEndpoint: '/avaliacao/analises-comportamentais/enviar/',
     idField: 'id_analise',
     columns: [
       { key: 'fk_id_funcionario', label: 'Funcionario' },
-      { key: 'resultado', label: 'Resultado' },
+      { key: 'resultado', label: 'Resultado', format: 'resultModal' },
       { key: 'data_analise', label: 'Data' },
     ],
     fields: [
@@ -262,9 +306,42 @@ export const resources = {
       { name: 'resultado', label: 'Resultado', type: 'textarea' },
       { name: 'data_analise', label: 'Data da analise', type: 'date' },
     ],
+    createFields: [
+      {
+        name: 'tipo_destino',
+        label: 'Enviar para',
+        type: 'select',
+        required: true,
+        submit: false,
+        defaultValue: 'funcionario',
+        options: [
+          { label: 'Funcionario', value: 'funcionario' },
+          { label: 'Setor', value: 'setor' },
+        ],
+      },
+      {
+        name: 'fk_id_funcionario',
+        label: 'Funcionario',
+        required: true,
+        relation: funcionarioRelation,
+        showWhenField: 'tipo_destino',
+        showWhenValue: 'funcionario',
+      },
+      {
+        name: 'fk_id_setor',
+        label: 'Setor',
+        required: true,
+        relation: setorRelation,
+        showWhenField: 'tipo_destino',
+        showWhenValue: 'setor',
+      },
+    ],
     filters: [
-      { name: 'funcionario', label: 'Funcionario' },
+      { name: 'search', label: 'Buscar funcionario' },
       { name: 'funcionario_nome', label: 'Nome funcionario' },
+      { name: 'setor', label: 'Setor', relation: setorRelation },
+      { name: 'data_analise_de', label: 'Data criada de', type: 'date' },
+      { name: 'data_analise_ate', label: 'Data criada ate', type: 'date' },
     ],
     allowCreate: true,
     allowEdit: true,
@@ -305,9 +382,9 @@ export const resources = {
         type: 'select',
         options: vagaStatusOptions,
       },
-      { name: 'setor', label: 'ID setor' },
-      { name: 'setor_nome', label: 'Nome setor' },
-      { name: 'texto', label: 'Titulo/descricao/requisitos' },
+      { name: 'setor', label: 'Setor', relation: setorRelation },
+      { name: 'titulo', label: 'Titulo' },
+      { name: 'descricao', label: 'Descricao' },
       { name: 'requisitos', label: 'Requisitos contem' },
     ],
     detailSections: [
@@ -345,6 +422,8 @@ export const resources = {
     description: 'Consulta administrativa de candidatos e curriculos conforme permissao.',
     endpoint: '/candidato/candidatos/',
     idField: 'cpf_candidato',
+    requiredFilter: 'vaga',
+    emptyBeforeFilterMessage: 'Selecione uma vaga para listar candidatos.',
     columns: [
       { key: 'cpf_candidato', label: 'CPF' },
       { key: 'nome', label: 'Nome' },
@@ -355,9 +434,35 @@ export const resources = {
     fields: [],
     filters: [
       {
+        name: 'vaga',
+        label: 'Vaga',
+        relation: vagaRelation,
+      },
+      {
+        name: 'search',
+        label: 'Buscar nome',
+        showWhenFilter: 'vaga',
+      },
+      {
         name: 'possui_curriculo',
-        label: 'Possui curriculo',
+        label: 'Possui curriculo?',
         type: 'select',
+        showWhenFilter: 'vaga',
+        options: [
+          { label: 'Sim', value: 'true' },
+          { label: 'Nao', value: 'false' },
+        ],
+      },
+      {
+        name: 'nome',
+        label: 'Nome',
+        showWhenFilter: 'vaga',
+      },
+      {
+        name: 'triagem_automatica_aprovada',
+        label: 'Aprovado triagem',
+        type: 'select',
+        showWhenFilter: 'vaga',
         options: [
           { label: 'Sim', value: 'true' },
           { label: 'Nao', value: 'false' },

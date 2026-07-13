@@ -32,11 +32,13 @@ class FuncionarioFilter(filters.FilterSet):
 class PlanoCarreiraFilter(filters.FilterSet):
     cargo = filters.NumberFilter(field_name='fk_id_cargo')
     cargo_nome = filters.CharFilter(field_name='fk_id_cargo__nome', lookup_expr='icontains')
+    descricao = filters.CharFilter(field_name='descricao', lookup_expr='icontains')
+    requisitos = filters.CharFilter(field_name='requisitos', lookup_expr='icontains')
     texto = filters.CharFilter(method='filter_texto')
 
     class Meta:
         model = PlanoCarreira
-        fields = ['id_plano', 'cargo', 'cargo_nome', 'texto']
+        fields = ['id_plano', 'cargo', 'cargo_nome', 'descricao', 'requisitos', 'texto']
 
     def filter_texto(self, queryset, name, value):
         """Busca texto em descricao ou requisitos do plano."""
@@ -70,6 +72,7 @@ class FolhaPagamentoFilter(filters.FilterSet):
     funcionario = filters.NumberFilter(field_name='fk_id_funcionario')
     funcionario_nome = filters.CharFilter(field_name='fk_id_funcionario__nome', lookup_expr='icontains')
     competencia = filters.CharFilter(field_name='competencia', lookup_expr='icontains')
+    criado_em = filters.DateFilter(method='filter_criado_em')
     criado_em_de = filters.DateTimeFilter(field_name='criado_em', lookup_expr='gte')
     criado_em_ate = filters.DateTimeFilter(field_name='criado_em', lookup_expr='lte')
 
@@ -80,6 +83,11 @@ class FolhaPagamentoFilter(filters.FilterSet):
             'funcionario',
             'funcionario_nome',
             'competencia',
+            'criado_em',
             'criado_em_de',
             'criado_em_ate',
         ]
+
+    def filter_criado_em(self, queryset, name, value):
+        """Filtra folhas criadas exatamente no dia informado."""
+        return queryset.filter(criado_em__date=value)

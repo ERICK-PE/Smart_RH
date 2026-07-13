@@ -26,6 +26,8 @@ const leadershipReviewFields: DisplayField[] = [
   { key: 'comentario', label: 'Comentario' },
 ];
 
+const avaliacaoCategoriaOptions = ['90º', '180º', '360º'];
+
 function asText(value: unknown) {
   if (value === null || value === undefined || value === '') return 'Nao informado';
   if (typeof value === 'object') {
@@ -74,9 +76,12 @@ export function LeadershipTeamPage() {
   if (query.isLoading) return <PageState title="Carregando equipe" />;
   if (query.isError) return <PageState title="Nao foi possivel carregar a equipe" variant="error" />;
 
+  const sectorName = asText(query.data?.results?.[0]?.fk_id_setor);
+  const pageTitle = sectorName === 'Nao informado' ? 'Setor' : sectorName;
+
   return (
     <section>
-      <PageHeader title="Equipe da lideranca" description="Funcionarios disponiveis conforme escopo do backend." />
+      <PageHeader title={pageTitle} description="Funcionarios disponiveis conforme escopo do backend." />
       <div className="overflow-hidden rounded-md border border-line bg-white dark:border-slate-700 dark:bg-slate-950">
         <table className="min-w-full divide-y divide-line text-sm">
           <thead className="bg-panel dark:bg-slate-900">
@@ -402,7 +407,19 @@ export function LeadershipEmployeeDetailPage() {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              {(['categoria', 'nota', 'data_avaliacao'] as const).map((field) => (
+              <select
+                className="focus-ring mb-2 w-full rounded-md border border-line bg-white p-2 text-sm text-ink dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                value={review.categoria}
+                onChange={(event) => setReview((current) => ({ ...current, categoria: event.target.value }))}
+              >
+                <option value="">Selecione a categoria</option>
+                {avaliacaoCategoriaOptions.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+              {(['nota', 'data_avaliacao'] as const).map((field) => (
                 <input
                   key={field}
                   className="focus-ring mb-2 w-full rounded-md border border-line bg-white p-2 text-sm text-ink dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"

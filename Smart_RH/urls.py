@@ -18,10 +18,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
-from . import views
+from django.views.generic import RedirectView
 
 urlpatterns = [
-    path('', views.index_view, name='home'),
+    path('', RedirectView.as_view(url='/api/', permanent=False), name='home'),
     path('admin/', admin.site.urls),
     path('api/', include('Smart_RH.api_urls')),
 ]

@@ -5,6 +5,7 @@ from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from Smart_RH.api_auth import SmartRHMeView, SmartRHTokenObtainPairView
+from Smart_RH.api_dashboard import SmartRHDashboardRHView
 
 
 def api_root_view(request):
@@ -29,6 +30,7 @@ def api_root_view(request):
             'funcionario': request.build_absolute_uri('funcionario/'),
             'avaliacao': request.build_absolute_uri('avaliacao/'),
             'candidato': request.build_absolute_uri('candidato/'),
+            'dashboard': request.build_absolute_uri('dashboard/rh/'),
         },
         'documentation': docs,
         'documentation_enabled': drf_spectacular_available,
@@ -39,6 +41,7 @@ urlpatterns = [
     path('auth/token/', SmartRHTokenObtainPairView.as_view(), name='token-obtain-pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('auth/me/', SmartRHMeView.as_view(), name='auth-me'),
+    path('dashboard/rh/', SmartRHDashboardRHView.as_view(), name='dashboard-rh'),
     path('setor/', include('apps.setor.api.urls')),
     path('funcionario/', include('apps.funcionario.api.urls')),
     path('avaliacao/', include('apps.avaliacao.api.urls')),

@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileUp, X } from 'lucide-react';
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { api, extractApiError, listResource } from '../services/api';
 import type { ApiRecord } from '../types';
 import { PageState } from '../components/PageState';
-import { Button, PageHeader } from '../components/ui';
+import { Button, FileDropzone, PageHeader } from '../components/ui';
 import { displayValue } from '../utils/formatters';
 
 const MAX_RESUME_FILE_SIZE = 5 * 1024 * 1024;
@@ -16,12 +15,6 @@ const RESUME_ALLOWED_CONTENT_TYPES = [
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
-
-function formatFileSize(size: number) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 function resumeExtension(file: File) {
   const index = file.name.lastIndexOf('.');
@@ -133,8 +126,7 @@ export function CandidateProfilePage() {
     });
   }
 
-  function handleResumeFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
+  function handleResumeFile(file: File | null) {
     setResumeError('');
 
     if (!file) {
@@ -146,15 +138,10 @@ export function CandidateProfilePage() {
     if (validationError) {
       setResumeFile(null);
       setResumeError(validationError);
-      event.target.value = '';
       return;
     }
 
     setResumeFile(file);
-  }
-
-  function removeResumeFile() {
-    setResumeFile(null);
   }
 
   const currentResume = query.data?.curriculo ? String(query.data.curriculo) : '';
@@ -213,32 +200,13 @@ export function CandidateProfilePage() {
             {currentResumeName || 'Nenhum curriculo cadastrado.'}
           </p>
         </div>
-        <div className="mt-4 rounded-md border border-line bg-panel p-4 dark:border-slate-700 dark:bg-slate-900">
-          <label className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="flex items-center gap-2 text-sm font-medium text-ink dark:text-slate-100">
-              <FileUp className="h-4 w-4 text-brand" />
-              Enviar novo curriculo PDF ou Word
-            </span>
-            <input
-              type="file"
-              accept={RESUME_ACCEPT}
-              onChange={handleResumeFile}
-              className="max-w-full text-sm"
-            />
-          </label>
-          {resumeFile ? (
-            <span className="mt-3 inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-xs font-medium text-ink dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
-              {resumeFile.name} ({formatFileSize(resumeFile.size)})
-              <button
-                type="button"
-                onClick={removeResumeFile}
-                className="rounded-sm text-muted hover:text-danger dark:text-slate-400"
-                aria-label={`Remover ${resumeFile.name}`}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </span>
-          ) : null}
+        <div className="mt-4">
+          <FileDropzone
+            accept={RESUME_ACCEPT}
+            label="Enviar novo curriculo PDF ou Word"
+            value={resumeFile}
+            onFileChange={handleResumeFile}
+          />
         </div>
         <div className="mt-4">
           <Button onClick={() => updateResume.mutate()} disabled={updateResume.isPending || !resumeFile}>
